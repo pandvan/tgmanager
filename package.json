@@ -1,0 +1,22 @@
+{
+  "name": "telegram-manager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "telegram-manager.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "fatshotty",
+  "license": "ISC",
+  "dependencies": {
+    "@mtproto/core": "^6.3.0",
+    "dayjs": "^1.11.11",
+    "fastify": "^4.28.0",
+    "input": "^1.0.1",
+    "mime-types": "^2.1.35",
+    "realm": "^12.9.0",
+    "short-unique-id": "^5.2.0",
+    "yaml": "^2.4.5",
+    "yargs": "^17.7.2"
+  }
+}

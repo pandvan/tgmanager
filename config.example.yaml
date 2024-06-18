@@ -1,0 +1,11 @@
+telegram:
+  database: false / true # use database for storing telegram session
+  users:
+    - id: 'xxx'          # telegram userId
+      api_id: 'xxx'      # telegram apiId for given user
+      api_hash: 'xxx'    # telegram apiHash for given user
+
+db: database.realm        # database file name 
+
+httpPort: 3000            # http port used to serve file via http://[::1]:port/dwl/:dbid
+logger: no | error | warn | info | debug  # set log level
