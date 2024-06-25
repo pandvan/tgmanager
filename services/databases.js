@@ -21,13 +21,17 @@ class Entry extends Realm.Object {
       channel: 'string?',
       parts: 'double[]',
       parentfolder: 'string?',
+      originalFilename: 'string?',
       type: 'string',
       md5: 'string?',
-      fileid: 'string?',
+      fileids: 'string[]',
       sizes: 'double[]',
       info: 'string{}',
-      content: 'string?',
-      state: {type: 'string', default: () => 'ACTIVE'}
+      content: 'data?',
+      state: {type: 'string', default: () => 'ACTIVE'},
+      ctime: 'int?',
+      mtime: 'int?',
+      atime: 'int?'
     },
     primaryKey: 'id'
   };
@@ -56,65 +60,120 @@ async function initDatabase() {
   DB = await Realm.open({
     path: DB_PATH,
     schema: [Entry, TelegramData],
-    schemaVersion: 2
+    schemaVersion: 5
   });
+
+  const entryTable = DB.objects(Entry.Name);
+  entryTable.addListener(onChangeListener);
 
   const rootFolder = await getItem(ROOT_ID);
   if ( !rootFolder ) {
     Log.warn('root folder not exists, create a new one');
-    await createFolder(null, 'root', ROOT_ID)
+    await createFolder(null, 'root', {id: ROOT_ID, channel: Config.telegram.upload.channel});
   }
+}
+
+
+function onChangeListener(entries, changes) {
+  // Use `changes.deletions` for deleted object
+
+  function manageEntries(index) {
+    const entry = entries[index];
+    writeSync( () => {
+      // Log.log('saved', entry.filename, 'in', entry.parentfolder);
+      if ( !entry.ctime ) entry.ctime = Date.now();
+      if ( !entry.mtime ) entry.mtime = Date.now();
+      if ( !entry.atime ) entry.atime = Date.now();
+      const parentId = entry.parentfolder;
+      if ( parentId ) {
+        const parent = DB.objectForPrimaryKey(Entry.Name, parentId);
+        if ( parent ) {
+          // Log.debug('update', parent.filename);
+          parent.mtime = Date.now();
+          // await createFolder(parent.parentfolder, parent.filename, parent);
+        }
+      }
+    });
+  }
+
+  (changes.insertions || []).forEach( manageEntries );
+  (changes.modifications || []).forEach(manageEntries);
 }
 
 async function getItem(id) {
   const ret = DB.objectForPrimaryKey(Entry.Name, id);
 
-  return Promise.resolve( ret ? JSON.parse( JSON.stringify( ret ) ) : ret );
+  return Promise.resolve( ret );
 }
 
-async function getChildren(folderId) {
-  return Promise.resolve( JSON.parse( JSON.stringify( DB.objects(Entry.Name).filtered(`parentfolder = $0`, folderId) || [] ) ) );
+async function getChildren(folderId, type) {
+  let obj = DB.objects(Entry.Name).filtered(`parentfolder == $0`, folderId);
+  if ( type ) {
+    obj = obj.filtered('type == $0', type);
+  }
+  return Promise.resolve( obj || [] );
 }
 
-async function getItemByFilename(filename, parent) {
+async function removeItem(itemId) {
+  if ( itemId === ROOT_ID) {
+    throw 'Cannot remote root folder';
+  }
+  const item = DB.objectForPrimaryKey(Entry.Name, itemId);
+  await write(() => DB.delete( item ) );
+}
+
+async function getItemByFilename(filename, parent, type) {
   let obj = DB.objects(Entry.Name);
   if ( parent ) {
-    obj = obj.filtered(`parentfolder = $0`, parent);
+    obj = obj.filtered(`parentfolder == $0`, parent);
   }
-  obj = obj.filtered(`filename = $0`, filename);
+  obj = obj.filtered(`filename ==[c] $0`, filename);
+
+  if ( type ) {
+    obj = obj.filtered('type == $0', type);
+  }
 
   if (parent) {
-    return Promise.resolve( obj[0] ? JSON.parse( JSON.stringify( obj[0] ) ) : obj[0]); // null
+    return Promise.resolve( obj[0] );
   } else {
-    return Promise.resolve( JSON.parse( JSON.stringify(obj) ) );
+    return Promise.resolve( obj );
   }
 }
 
-async function checkExist(filename, parent, type) {
-  let obj = DB.objects(Entry.Name).filtered(`filename = $0 and parentfolder = $1`, filename, parent);
+async function checkExist(filename, parent, type, id) {
+  let obj = DB.objects(Entry.Name).filtered(`filename ==[c] $0 and parentfolder == $1`, filename, parent);
+  if ( id ) {
+    // suppose 'modify' action
+    obj = obj.filtered('id <> $0', id);
+  }
   if ( type ) {
-    obj = obj.filtered(`type = $0`, type);
+    obj = obj.filtered(`type == $0`, type);
   }
   return obj.length > 0;
 }
 
-async function createFolder(parentId, foldername, {channel, id}) {
+async function createFolder(parentId, foldername, data) {
+
+  const {channel, id} = data || {};
 
   // check existing
-  if ( await checkExist(foldername, parentId, 'folder') ) {
-    throw `Folder '${foldername}' already exists in '${parentId}'`;
+  if ( await checkExist(foldername, parentId, 'folder', id) ) {
+    throw `Folder '${foldername}' already exists in '${parentId}' with id '${id}'`;
   }
 
   return await write( () => {
-    return DB.create( Entry.Name, {
+    return DB.create( Entry.Name, Object.assign({
       id,
       filename: foldername,
+      originalFilename: foldername,
       channel,
       parts: [],
-      parent: parentId,
+      parentfolder: parentId,
       type: 'folder',
-      sizes: []
-    }, 'modified');
+      sizes: [],
+      ctime: Date.now(),
+
+    }, data), 'modified');
   });
 
 }
@@ -122,24 +181,22 @@ async function createFolder(parentId, foldername, {channel, id}) {
 async function saveFile(file, parent) {
 
   // check existing
-  if ( await checkExist(file.filename, parent || file.parent, file.type) ) {
+  if ( await checkExist(file.filename, parent || file.parent, file.type, file.id) ) {
     throw `File '${file.filename}' already exists in '${parent}'`;
   }
 
-  file.parent = parent || file.parent;
-
   return await write( () => {
+    file.parentfolder = parent || file.parentfolder;
+    file.originalFilename = file.originalFilename || file.filename;
     return DB.create( Entry.Name, file, 'modified');
   })
 }
 
 
-let WRITING = false;
 async function write(fn) {
 
   const fnOpen = async () => {
     return DB.write( () => {
-      WRITING = true;
       try {
         let ret = fn(DB);
         return ret;
@@ -147,15 +204,37 @@ async function write(fn) {
         Log.error(`cannot write in DB`, e);
         throw e;
       } finally {
-        WRITING = false;
       }
     });
   }
 
-  if ( WRITING ){
+  if ( DB.isInTransaction ){
     return Promise.resolve( fn(DB) );
   } else {
     return Promise.resolve(fnOpen());
+  }
+
+}
+
+function writeSync(fn) {
+
+  const fnOpen = () => {
+    return DB.write( () => {
+      try {
+        let ret = fn(DB);
+        return ret;
+      } catch(e) {
+        Log.error(`cannot write in DB`, e);
+        throw e;
+      } finally {
+      }
+    });
+  }
+
+  if ( DB.isInTransaction ){
+    return fn(DB);
+  } else {
+    return fnOpen();
   }
 
 }
@@ -173,6 +252,10 @@ async function setTelegramData(data) {
 
 }
 
+async function close() {
+  return await DB.close();
+}
+
 
 module.exports = {
   ROOT_ID,
@@ -181,9 +264,13 @@ module.exports = {
   getItem,
   getChildren,
   write,
+  writeSync,
   saveFile,
   getItemByFilename,
   checkExist,
+  createFolder,
   getTelegramData,
-  setTelegramData
+  setTelegramData,
+  removeItem,
+  close
 };

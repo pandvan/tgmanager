@@ -4,6 +4,10 @@ const {sleep} = require('@mtproto/core/src/utils/common');
 const {Config} = require('../config');
 const {getTelegramData, setTelegramData} = require('./databases');
 const Logger = require('../logger');
+const ShortUniqueID = require('short-unique-id');
+
+
+const UUID = new ShortUniqueID({dictionary: 'number', length: 19});
 
 const Log = new Logger('Telegram');
 
@@ -125,11 +129,51 @@ class TelegramApi {
     });
   }
 
+  async sendFileParts(fileId, part, parts, chunk) {
+    return await this.apiCall(`upload.saveBigFilePart`, {
+      file_id: Number(fileId),
+      file_part: part,
+      file_total_parts: parts,
+      bytes: chunk
+    });
+  }
+
+  async moveFileToChat(channel, {fileId, parts, filename, mime}) {
+    return await this.apiCall(`messages.sendMedia`, {
+      peer: channel ? {
+        '_': 'inputPeerChannel',
+        channel_id: channel.id,
+        access_hash: channel.hash
+      } : { '_': 'inputPeerSelf' },
+      random_id: UUID.randomUUID(),
+      media: {
+        '_': 'inputMediaUploadedDocument',
+        file: {
+          '_': 'inputFileBig',
+          id: Number(fileId),
+          parts: parts,
+          name: filename,
+        },
+        mime_type: mime,
+        attributes: [{
+          '_': 'documentAttributeFilename',
+          file_name: filename
+        }]
+      }
+  
+    });
+  }
+
 
 }
 
 
 class TelegramLogin {
+
+  infos = [];
+  premium = false;
+
+  maxUploadParts = 0;
 
   constructor(api) {
     this.api = api;
@@ -142,12 +186,34 @@ class TelegramLogin {
           _: 'inputUserSelf',
         },
       });
+
+      this.premium = user.users[0].premium;
   
       return user;
 
     } catch (error) {
       return Promise.reject(error);
     }
+  }
+  
+  async getUserConfig() {
+    try {
+      const info = await this.api.apiCall('help.getAppConfig', {
+        hash: 0
+      });
+  
+      this.infos = info.config.value;
+
+      this.maxUploadParts = this.getConfig( this.premium ? 'upload_max_fileparts_premium' : 'upload_max_fileparts_default' );
+
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
+  getConfig(key) {
+    const res = this.infos.find( i => i.key == key );
+    return res ? res.value.value : null;
   }
 
   async sendCode(phone) {

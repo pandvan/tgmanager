@@ -77,7 +77,7 @@ class Logger extends console.Console {
     }
   }
   static log() {
-    super.log(...arguments);
+    console.log(...arguments);
   }
 
 }

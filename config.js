@@ -15,12 +15,17 @@ function loadConfig(args) {
   Config = Object.assign(Config, {
     telegram: {
       database: String(yaml.telegram.database) == 'true',
-      users: yaml.telegram.users
+      users: yaml.telegram.users,
+      upload: {
+        min_size: Number(yaml.telegram.upload.min_size) || 0,
+        channel: String(yaml.telegram.upload.channel)
+      }
     },
     data: args.data,
-    db: yaml.db,
+    db: process.env.DB || yaml.db,
     logger: yaml.logger || 'info',
-    httpPort: yaml.httpPort
+    httpPort: process.env.HTTP_PORT || yaml.httpPort,
+    basic_auth: yaml.basic_auth || {}
   });
 
 } 

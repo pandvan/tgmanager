@@ -4,8 +4,16 @@ telegram:
     - id: 'xxx'          # telegram userId
       api_id: 'xxx'      # telegram apiId for given user
       api_hash: 'xxx'    # telegram apiHash for given user
+  
+  upload:
+    min_size: 0            # minimum size (in bytes): file larger than this value will be uploaded on telegram. Otherwise it will keep only in database
+    channel: xxxx         # default channel_id used to upload file on telegram. If specified in parent folder, it will use that channel, otherwise it will use this value
 
 db: database.realm        # database file name 
 
 httpPort: 3000            # http port used to serve file via http://[::1]:port/dwl/:dbid
 logger: no | error | warn | info | debug  # set log level
+
+basic_auth:               # enable basic authentication on webUI
+  user: user              # user for basic authentication
+  pass: password          # password for basic authentication

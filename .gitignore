@@ -1,5 +1,5 @@
 config.yaml
-data/
+data*/
 
 .DS_Store
 
@@ -9,3 +9,6 @@ test.js
 test.mkv
 
 create-fs.js
+parse-fs.js
+
+test-*.js

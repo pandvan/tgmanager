@@ -1,35 +1,94 @@
-const {parseRange} = require('./utils');
+const {parseRange, isUUID} = require('./utils');
 const { PassThrough } = require('stream');
-const Streamer = require('./services/streamer');
+const Downloader = require('./services/downloader');
 const TelegramClients = require('./services/clients');
 const Logger = require('./logger');
 const {Config} = require('./config');
+const Uploader = require('./services/uploader');
+const Multipart = require('@fastify/multipart');
+const Mime = require('mime-types');
+const Pug = require('pug');
+const Path = require('path');
+const FastifyView = require('@fastify/view');
+const {getItem, ROOT_ID, getItemByFilename, saveFile, writeSync, removeItem, getChildren} = require('./services/databases');
+const FastifyStatic = require('@fastify/static');
 
 const Log = new Logger('Server');
-
-const {getItem} = require('./services/databases');
 
 const Fastify = require('fastify')({
   // logger: true
 });
 
+if ( Config.basic_auth ) {
+  Fastify.register(require('@fastify/basic-auth'), {
+    validate: (username, password, req, reply, done) => {
+      if (username === Config.basic_auth.user && password === Config.basic_auth.pass ) {
+        done();
+      } else {
+        done(new Error('Invalid authentication'))
+      }
+    },
+    authenticate: true // WWW-Authenticate: Basic
+  });
 
-Fastify.get('/dwl/:dbid', function (request, reply) {
+  Fastify.after(() => {
+    Fastify.addHook('onRequest', Fastify.basicAuth)
+  });
+}
+
+Fastify.register(FastifyView, {
+  engine: {
+    pug: Pug
+  }
+});
+
+Fastify.register(FastifyStatic, {
+  root: Path.join(__dirname, 'public'),
+  prefix: '/public/', // optional: default '/'
+})
+
+Fastify.register( Multipart, { limits: {fileSize: Infinity } } );
+
+Fastify.get("/", (req, reply) => {
+  reply.view("webUI/index.pug");
+});
+
+Fastify.get('/folder/:fldId', async (request, reply) => {
+
+  const {fldId} = request.params;
+
+  if ( !fldId ) {
+    reply.code(422);
+    return reply.send({error: 'invalid folder id'});
+  }
+
+  const folder = await getItem(fldId);
+  if ( folder.type !== 'folder' ) {
+    reply.code(422);
+    return reply.send({error: `item ${fldId} is not a folder`});
+  }
+
+  const children = await getChildren(folder.id);
+
+  return reply.send( children );
+});
+
+Fastify.get('/dwl/:fileid', async function (request, reply) {
   // GET data from DB
-  Log.info(`[${request.id}]`, 'new request for', req.params.dbid, 'with range:', request.headers.range);
+  Log.info(`[${request.id}]`, 'new request for', request.params.dbid, 'with range:', request.headers.range);
 
-  const file = getItem(request.params.dbid);
+  const file = await getItem(request.params.fileid);
 
   if ( !file ) {
-    Log.error('no file found with id', request.params.dbid);
+    Log.error('no file found with id', request.params.fileid);
     reply.code(404);
     return reply.send(`cannot find file with id: ${request.params.id}`);
   }
 
   if ( file.type == 'folder' ) {
-    Log.error(`file ${request.params.dbid} is a folder`);
+    Log.error(`file ${request.params.fileid} is a folder`);
     reply.code(426);
-    return reply.send(`file ${request.params.dbid} is a folder`);
+    return reply.send(`file ${request.params.fileid} is a folder`);
   }
 
   const dbData = [];
@@ -60,7 +119,7 @@ Fastify.get('/dwl/:dbid', function (request, reply) {
 
   const stream = new PassThrough();
   stream.on('data', (c) => Log.debug(`[${request.id}]`, 'sending', c.length));
-  const service = new Streamer(request.id, dbData, start, end);
+  const service = new Downloader(request.id, dbData, start, end);
 
   request.raw.on('error', () => {
     if ( !service.aborted ) {
@@ -100,8 +159,123 @@ Fastify.get('/dwl/:dbid', function (request, reply) {
   Log.info(`[${request.id}]`, 'responded');
   Log.debug(reply.getHeaders());
 
+  await reply;
+
 });
 
+Fastify.post('/fld/:fldid/file', async function (request, reply) {
+
+
+  let parentfolder = request.params.fldid;
+
+  if ( !parentfolder) {
+    reply.code(422);
+    return await reply.send('parentfolder must be specified');
+  }
+
+  if ( !isUUID(parentfolder) ) {
+    reply.code(422);
+    return await reply.send('invalid parentfolder');
+  }
+
+  const parent = await getItem(parentfolder);
+  if ( !parent ) {
+    reply.code(404);
+    return await reply.send(`parentfolder ${parentfolder} not exists`);
+  }
+
+  let channelid = null, p = parent;
+  while ( !channelid ) {
+    p = await getItem(p.id);
+    channelid = p.channel;
+    if (p.id === ROOT_ID) break;
+    p = p.parentfolder;
+  }
+
+  if ( !channelid ) {
+    Log.info('file will be uploaded into default channel');
+  }
+
+  let file = await request.file();
+  
+  if ( !file ) {
+    reply.code(422);
+    return await reply.send(`file is missing`);
+  }
+
+  let {mimetype, filename} = file;
+
+  mimetype = Mime.lookup(filename) || mimetype;
+
+  const f = await getItemByFilename(filename, parent.id);
+  if ( f && f.state == 'TEMP' ) {
+    Log.warn('delete already existing TEMPORARY file', filename, 'in', parent.filename);
+    await removeItem(f.id);
+  }
+
+  const dbFile = await saveFile({
+    filename: filename,
+    originalFilename: filename,
+    type: mimetype,
+    // md5: 'string?',
+    // fileids: 'string[]',
+    // sizes: 'double[]',
+    // info: 'string{}',
+    // content: 'data?',
+    state: 'TEMP'
+  }, ROOT_ID);
+
+
+  TelegramClients.nextClient();
+  const client = TelegramClients.Client;
+
+  const uploader = new Uploader(client, channelid, filename);
+
+  await uploader.prepare();
+
+  uploader.onCompleteUpload = async (portions, chl) => {
+    await writeSync( () => {
+      dbFile.channel = chl;
+      dbFile.fileids = portions.map( (item) => item.fileId );
+      dbFile.sizes = portions.map( (item) => item.size );
+      dbFile.parts = portions.map( (item) => item.msgid );
+
+      dbFile.state = 'ACTIVE';
+
+      Log.info('file has been correctly uploaded, id: ', dbFile.id);
+    });
+  };
+
+  Log.info('file is being uplaoded, id:', dbFile.id);
+  await uploader.execute(file.file);
+
+  return await reply.send('file is being upload');
+});
+
+Fastify.post('/folder', async function (request, reply) {
+  // HANDLE create folder
+  return reply.send('cannot handle yet');
+});
+
+Fastify.put('/file/:id', async function (request, reply) {
+  // HANDLE rename/move file
+  return reply.send('cannot handle yet');
+});
+
+Fastify.put('/folder/:id', async function (request, reply) {
+  // HANDLE rename/move folder
+  return reply.send('cannot handle yet');
+});
+
+Fastify.delete('/file/:id', async function (request, reply) {
+  // HANDLE delete file
+  return reply.send('cannot handle yet');
+});
+
+Fastify.delete('/folder/:id', async function (request, reply) {
+  // HANDLE delete folder
+  return reply.send('cannot handle yet');
+});
 
 
 Fastify.listen({ port: Config.httpPort }, (err, address) => {

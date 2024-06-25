@@ -37,7 +37,9 @@ class TelegramClients {
     try {
       const user = await tg.Login.getCurrentUser();
 
-      Log.info('Login OK for user:', user.users[0].username);
+      await tg.Login.getUserConfig();
+
+      Log.info('Login OK for user:', user.users[0].username, `${tg.Login.premium ? 'is premium' : 'is NOT premium'}`, 'and can upload', tg.Login.maxUploadParts, 'parts');
 
     } catch (e) {
       if ( e.error_code == 401 ) {
