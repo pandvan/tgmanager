@@ -11,4 +11,4 @@ test.mkv
 create-fs.js
 parse-fs.js
 
-test-*.js
+test-*.*
