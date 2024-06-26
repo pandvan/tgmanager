@@ -25,6 +25,12 @@ const Args = Yargs( hideBin(process.argv) )
     type: 'boolean',
     default: false
   })
+  .option('webdav', {
+    alias: 'wd',
+    describe: 'start webdav server',
+    type: 'boolean',
+    default: false
+  })
   .argv;
 
 

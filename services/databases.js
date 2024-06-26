@@ -164,7 +164,7 @@ async function createFolder(parentId, foldername, data) {
   return await write( () => {
     return DB.create( Entry.Name, Object.assign({
       id,
-      filename: foldername,
+      filename: foldername.replace(/\//gi,'-'),
       originalFilename: foldername,
       channel,
       parts: [],
@@ -186,6 +186,7 @@ async function saveFile(file, parent) {
   }
 
   return await write( () => {
+    file.filename = file.filename.replace(/\//gi, '-');
     file.parentfolder = parent || file.parentfolder;
     file.originalFilename = file.originalFilename || file.filename;
     return DB.create( Entry.Name, file, 'modified');

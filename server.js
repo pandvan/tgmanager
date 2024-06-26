@@ -126,27 +126,27 @@ Fastify.get('/dwl/:fileid', async function (request, reply) {
       service.stop();
       Log.warn('request has been aborted because of error')
     } 
-  })
+  });
 
   request.raw.on('aborted', () => {
     if ( !service.aborted ) {
       service.stop();
       Log.warn('request has been aborted because of aborted')
     } 
-  })
+  });
 
   request.raw.on('close', () => {
     if ( !service.aborted ) {
       service.stop();
       Log.warn('request has been aborted because of close')
     } 
-  })
+  });
 
   reply.code( headerRange ? 206 : 200)
       
   reply.header('Content-Range', `bytes ${start}-${end}/${totalsize}`);
   reply.header('content-length', (end - start) + 1);
-  reply.header('content-type', 'video/x-matroska');
+  reply.header('content-type', file.type);
   reply.header("content-disposition", `inline; filename="${file.filename}"`);
   reply.header("accept-ranges", "bytes");
 
@@ -223,7 +223,7 @@ Fastify.post('/fld/:fldid/file', async function (request, reply) {
     // info: 'string{}',
     // content: 'data?',
     state: 'TEMP'
-  }, ROOT_ID);
+  }, parentfolder);
 
 
   TelegramClients.nextClient();
@@ -234,7 +234,7 @@ Fastify.post('/fld/:fldid/file', async function (request, reply) {
   await uploader.prepare();
 
   uploader.onCompleteUpload = async (portions, chl) => {
-    await writeSync( () => {
+    writeSync( () => {
       dbFile.channel = chl;
       dbFile.fileids = portions.map( (item) => item.fileId );
       dbFile.sizes = portions.map( (item) => item.size );
@@ -243,13 +243,14 @@ Fastify.post('/fld/:fldid/file', async function (request, reply) {
       dbFile.state = 'ACTIVE';
 
       Log.info('file has been correctly uploaded, id: ', dbFile.id);
+
+      return reply.send('file is being upload');
     });
   };
 
   Log.info('file is being uplaoded, id:', dbFile.id);
   await uploader.execute(file.file);
 
-  return await reply.send('file is being upload');
 });
 
 Fastify.post('/folder', async function (request, reply) {

@@ -25,7 +25,8 @@ function loadConfig(args) {
     db: process.env.DB || yaml.db,
     logger: yaml.logger || 'info',
     httpPort: process.env.HTTP_PORT || yaml.httpPort,
-    basic_auth: yaml.basic_auth || {}
+    basic_auth: yaml.basic_auth,
+    webdav: yaml.webdav
   });
 
 } 

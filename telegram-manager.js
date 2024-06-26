@@ -20,10 +20,9 @@ async function start() {
 
   if ( Args.serve ) {
     require('./server');
-  } else {
-    Log.log('exiting application');
-    // close application if everything done
-    process.exit(0);
+  }
+  if ( Args.webdav ) {
+    require('./webdav');
   }
 
 }

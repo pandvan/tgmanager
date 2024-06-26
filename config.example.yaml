@@ -17,3 +17,8 @@ logger: no | error | warn | info | debug  # set log level
 basic_auth:               # enable basic authentication on webUI
   user: user              # user for basic authentication
   pass: password          # password for basic authentication
+
+webdav:                   # enable webdav
+  user: user              # webdav user auth
+  pass: password          # webdav password for user
+  port: 1900              # webdav listening port

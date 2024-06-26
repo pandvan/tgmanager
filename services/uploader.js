@@ -72,7 +72,7 @@ class Uploader {
 
     });
 
-    source.on('end', async () => {
+    source.on('finish', async () => {
 
       const uploadChunk = Uint8Array.prototype.slice.call(buf, 0, CHUNK);
       if ( uploadChunk.length ) {
