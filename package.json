@@ -26,6 +26,7 @@
     "pug": "2.0.4",
     "realm": "^12.9.0",
     "short-unique-id": "^5.2.0",
+    "telegraf": "^4.16.3",
     "webdav-server": "^2.6.2",
     "yaml": "^2.4.5",
     "yargs": "^17.7.2"

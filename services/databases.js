@@ -78,7 +78,7 @@ async function initDatabase() {
   DB = await Realm.open({
     path: DB_PATH,
     schema: [Entry, Part, TelegramData],
-    schemaVersion: 1
+    schemaVersion: 2
   });
 
   const entryTable = DB.objects(Entry.Name);
@@ -305,6 +305,9 @@ async function updateFile(file, data, parent) {
 
 }
 
+async function byQuery(queryText, args) {
+  return DB.objects(ENTRY_NAME).filtered(queryText, ...args);
+}
 
 async function write(fn) {
 
@@ -403,5 +406,6 @@ module.exports = {
   createFolder,
   updateFolder,
   createFile,
-  updateFile
+  updateFile,
+  byQuery
 };

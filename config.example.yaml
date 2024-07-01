@@ -8,7 +8,7 @@ telegram:
   upload:
     min_size: 0           # minimum size (in bytes): file larger than this value will be directly uploaded on telegram. Otherwise it will keep only in database
     channel: xxxx         # default channel_id used to upload file on telegram. If specified in parent folder, it will use that channel, otherwise it will use this value
-
+  
   bot_token: xxxx         # bot token used for listen events on channels
 
 data: ./data              # default data folder

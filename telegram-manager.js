@@ -6,6 +6,8 @@ const Path = require('path');
 
 const STRM = require('./strm');
 
+const Bot = require('./services/telegram-bot');
+
 const Log = new Logger('APP');
 
 
@@ -33,6 +35,10 @@ async function start() {
     STRM.init( DB.ROOT_ID, Path.resolve(Config.strm.folder) );
   }
 
+  if ( Config.telegram.bot_token ) {
+    Bot.start();
+  }
+
 }
 
 
@@ -46,6 +52,7 @@ process.on('uncaughtException', (err, origin) => {
 function handle(signal) {
   Logger.log(`---- Exit: ${signal} ----`);
   DB.close();
+  Bot.close();
   process.exit(0);
 }
 

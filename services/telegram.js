@@ -30,6 +30,9 @@ class TelgramStorage {
 
 
 class TelegramApi {
+  __options__ = {};
+  userid = null;
+
   constructor(userid, api_id, api_hash, storage) {
     this.mtproto = new MTProto({
       api_id,
@@ -40,6 +43,7 @@ class TelegramApi {
       },
     });
     this._login = new TelegramLogin(this);
+    this.userid = userid;
   }
 
   get Login() {
@@ -48,8 +52,8 @@ class TelegramApi {
 
   async apiCall(method, params, options = {}) {
     try {
-      const result = await this.mtproto.call(method, params, options);
-
+      Object.assign(this.__options__, options)
+      const result = await this.mtproto.call(method, params, this.__options__);
       return result;
     } catch (error) {
       Log.warn(`${method} error:`, error);

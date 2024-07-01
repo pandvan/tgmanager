@@ -172,15 +172,12 @@ class FSApi {
       Log.info(`folder ${itemdata.filename} has been deleted, recursively: ${recursively}`);
 
     } else {
-      const content = item.content;
-      const data = JSON.parse(JSON.stringify(item));
-      data.content = content;
+      const data = DB.remap(item);
 
-      if (content && content.byteLength) {
+      if (data.content && data.content.byteLength) {
         // file is a local file in DB
-        const itemdata = DB.remap(item);
-        await DB.removeItem(itemdata.id);
-        Log.info(`file ${itemdata.filename} has been deleted`);
+        await DB.removeItem(data.id);
+        Log.info(`file ${data.filename} has been deleted`);
       } else {
         // file is located on telegram
         const parts = data.parts;
@@ -408,12 +405,12 @@ class FSApi {
       throw `'${pathFrom}' not found`;
     }
 
-    let parentFolder = await DB.getItem(DB.ROOT_ID);
-
-    // TODO: move file from telegram channels
     
     await DB.write(async () => {
       // open transaction
+      
+      let parentFolder = await DB.getItem(DB.ROOT_ID);
+      let destChannelid = null;
 
       while(pathsTo.length - 1) {
         let folderName = pathsTo.shift()
@@ -426,6 +423,12 @@ class FSApi {
           }, parentFolder.id);
         }
         parentFolder = destPath;
+        destChannelid = destChannelid || parentFolder.channel;
+      }
+
+      if ( !destChannelid ) {
+        Log.info('[move] file will be uploaded into default channel');
+        destChannelid = Config.telegram.upload.channel;
       }
 
       // get new name
@@ -442,9 +445,44 @@ class FSApi {
       } else {
         // TODO: calculate new channel
         // TODO: move file into destination channel
+
+        if ( (!oldFileData.content || oldFileData.content.byteLength <= 0) && oldFileData.parts.length > 0 ) {
+          // file is located on telegram: move it to new channel if needed
+          if ( oldFileData.channel != destChannelid ) {
+            // file need to be moved between channels
+
+            TelegramClients.nextClient();
+            const client = TelegramClients.Client;
+
+            const sourceChannel = await client.getChannel(oldFileData.channel);
+            const destinationChannel = await client.getChannel(destChannelid);
+
+            let newParts = [];
+            for ( const part of oldFileData.parts ) {
+              let resp = await client.forwardMessage(part.messageid, 
+                {id: sourceChannel.id, hash: sourceChannel.access_hash},
+                {id: destinationChannel.id, hash: destinationChannel.access_hash},
+              );
+              const msg = resp.updates.find( u => !!u.message );
+              newParts.push( { ...part, messageid: msg.message.id } );
+
+              // deplete old art
+              resp = await client.deleteMessage({id: sourceChannel.id, hash: sourceChannel.access_hash}, part.messageid);
+              if (resp.pts_count !== 1) {
+                // callback(v2.Errors.InvalidOperation);
+                throw `Deleted more than 1 message`;
+              }
+
+            }
+
+            oldFileData.parts = newParts;
+          }
+        }
+
         await DB.updateFile(oldFileData, {
           parentfolder: parentFolder.id, 
-          filename
+          filename,
+          channel: destChannelid || oldFileData.channel
         }, parentFolder.id);
       }
 
@@ -465,6 +503,7 @@ class FSApi {
     await DB.write(async () => {
 
       let parentFolder = await DB.getItem(DB.ROOT_ID);
+      let destChannelid = null;
 
       while(pathsTo.length - 1) {
         let folderName = pathsTo.shift();
@@ -476,6 +515,7 @@ class FSApi {
           }, parentFolder.id);
         }
         parentFolder = destPath;
+        destChannelid = destChannelid || parentFolder.channel;
         // destChannel = parentFolder.channel || destChannel;
       }
 
@@ -506,11 +546,15 @@ class FSApi {
           TelegramClients.nextClient();
           const client = TelegramClients.Client;
 
+          if ( !destChannelid ) {
+            Log.info('file will be uploaded into default channel');
+            destChannelid = Config.telegram.upload.channel;
+          }
+
           const sourceChannel = await client.getChannel(oldFile.channel);
-          let destinationChannel = sourceChannel;
+          const destinationChannel = await client.getChannel(destChannelid);
 
           let newParts = [];
-          // TODO: get new parts
           for ( const part of oldFile.parts ) {
             const resp = await client.forwardMessage(part.messageid, 
               {id: sourceChannel.id, hash: sourceChannel.access_hash},

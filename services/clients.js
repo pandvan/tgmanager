@@ -15,6 +15,8 @@ class TelegramClients {
   }
 
   get Client() {
+    const c = this.clients[ this.clientIndex ];
+    Log.info('using client', c.userid);
     return this.clients[ this.clientIndex ];
   }
 

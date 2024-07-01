@@ -99,6 +99,17 @@ class TGFileSystem extends v2.VirtualFileSystem {
     try {
 
       await this.fsApi.move(pathFrom.toString(), pathTo.toString());
+      Log.info('[move]', 'correctly moved file:', pathTo.toString());
+
+      const sPath = pathFrom.toString(true);
+      for (const itemPath in this.resources) {
+        if (itemPath.startsWith(sPath)) {
+          delete this.resources[itemPath];
+        }
+      }
+
+      delete this.resources[pathFrom.toString()];
+
       callback(null, true);
 
     } catch(e) {
@@ -121,6 +132,7 @@ class TGFileSystem extends v2.VirtualFileSystem {
     try {
 
       await this.fsApi.copy(pathFrom.toString(), pathTo.toString());
+      Log.info('[copy]', 'correctly copied file:', pathTo.toString());
       callback(null, true);
 
     } catch(e) {

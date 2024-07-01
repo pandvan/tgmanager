@@ -27,7 +27,8 @@ function loadConfig(args) {
       upload: {
         min_size: uploadMinSize,
         channel: String(yaml.telegram.upload.channel)
-      }
+      },
+      bot_token: yaml.telegram.bot_token
     },
     data: Path.resolve(args.data || yaml.data || Path.join(__dirname, 'data/') ),
     
