@@ -1,7 +1,5 @@
 const TelegramClients = require('./services/clients');
-const {Config, loadConfig} = require('./config');
-const Path = require('path');
-const FS = require('fs');
+const {Config} = require('./config');
 const {initDatabase} = require('./services/databases');
 const Logger = require('./logger');
 
@@ -11,6 +9,7 @@ const Log = new Logger('APP');
 const Args = require('./initialize');
 
 async function start() {
+
   Log.log('Starting application');
   await initDatabase();
 
@@ -27,9 +26,10 @@ async function start() {
 
 }
 
-
 async function main() {
+  
   await start();
+
 }
 
 main();

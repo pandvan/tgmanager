@@ -160,7 +160,36 @@ class TelegramApi {
           file_name: filename
         }]
       }
-  
+    });
+  }
+
+
+  async forwardMessage(msgId, chFrom, chTo) {
+    return await this.apiCall('messages.forwardMessages', {
+      silent: true,
+      from_peer: {
+        '_': 'inputPeerChannel',
+        channel_id: chFrom.id,
+        access_hash: chFrom.hash
+      },
+      to_peer: {
+        '_': 'inputPeerChannel',
+        channel_id: chTo.id,
+        access_hash: chTo.hash
+      },
+      id: [msgId],
+      random_id: [UUID.randomUUID()]
+    });
+  }
+
+  async deleteMessage(channel, msgId) {
+    return await this.apiCall('channels.deleteMessages', {
+      channel: {
+        '_': 'inputPeerChannel',
+        channel_id: channel.id,
+        access_hash: channel.hash
+      },
+      id: [msgId]
     });
   }
 

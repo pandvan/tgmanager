@@ -68,6 +68,14 @@ class Downloader {
     this.id = id;
   }
 
+
+  get Range() {
+    return {
+      ...this.range,
+      totalsize: this.totalsize
+    }
+  }
+
   /**
    * Stop downloading
    */
@@ -190,7 +198,7 @@ class Downloader {
         needStop = true
       }
   
-      const buf = Buffer.from( tgFile.bytes.slice(firstByte, lastByte) );
+      const buf = Uint8Array.prototype.slice.call(tgFile.bytes, firstByte, lastByte);
       Log.debug(`[${this.id}]`, 'write', buf.length);
       stream.write(  buf );
   
@@ -198,6 +206,7 @@ class Downloader {
   
       if ( needStop || this.aborted ) { 
         Log.debug(`[${this.id}]`, 'stop streaming');
+        stream.end();
         break
       }
     }

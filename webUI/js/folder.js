@@ -1,7 +1,9 @@
 import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import * as Utils from './utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCoffee, faPen, faTrashCan, faFolderClosed, faFolderOpen, faFile } from '@fortawesome/free-solid-svg-icons'
+import { faPen, faTrashCan, faFolderClosed } from '@fortawesome/free-solid-svg-icons'
+import { faFile, faFolderOpen } from '@fortawesome/free-regular-svg-icons'
+
 
 function Item(props) {
   const {item, depth} = props;

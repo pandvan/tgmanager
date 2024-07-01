@@ -1,19 +1,21 @@
 const {parseRange, isUUID} = require('./utils');
-const { PassThrough } = require('stream');
-const Downloader = require('./services/downloader');
+const Stream = require('stream');
 const TelegramClients = require('./services/clients');
 const Logger = require('./logger');
 const {Config} = require('./config');
-const Uploader = require('./services/uploader');
 const Multipart = require('@fastify/multipart');
 const Mime = require('mime-types');
 const Pug = require('pug');
 const Path = require('path');
 const FastifyView = require('@fastify/view');
-const {getItem, ROOT_ID, getItemByFilename, saveFile, writeSync, removeItem, getChildren} = require('./services/databases');
+const DB = require('./services/databases');
 const FastifyStatic = require('@fastify/static');
 
+const FSApiLib = require('./services/fs-api');
+
 const Log = new Logger('Server');
+
+let FSApi = null;
 
 const Fastify = require('fastify')({
   // logger: true
@@ -62,52 +64,45 @@ Fastify.get('/folder/:fldId', async (request, reply) => {
     return reply.send({error: 'invalid folder id'});
   }
 
-  const folder = await getItem(fldId);
-  if ( folder.type !== 'folder' ) {
+  const folder = await DB.getItem(fldId);
+  if ( !folder || folder.type !== 'folder' ) {
     reply.code(422);
     return reply.send({error: `item ${fldId} is not a folder`});
   }
 
-  const children = await getChildren(folder.id);
+  const paths = await FSApi.buildPath(folder);
+  const children = await FSApi.listDir(paths);
 
-  return reply.send( children );
+  return reply.send( children.slice(1) );
 });
 
-Fastify.get('/dwl/:fileid', async function (request, reply) {
+Fastify.get('/files/:fileid', async function (request, reply) {
   // GET data from DB
   Log.info(`[${request.id}]`, 'new request for', request.params.dbid, 'with range:', request.headers.range);
 
-  const file = await getItem(request.params.fileid);
-
-  if ( !file ) {
-    Log.error('no file found with id', request.params.fileid);
-    reply.code(404);
-    return reply.send(`cannot find file with id: ${request.params.id}`);
+  if ( !request.params.fileid ) {
+    reply.code(422);
+    return reply.send({error: 'invalid file id'});
   }
 
-  if ( file.type == 'folder' ) {
-    Log.error(`file ${request.params.fileid} is a folder`);
-    reply.code(426);
-    return reply.send(`file ${request.params.fileid} is a folder`);
+  const file = await DB.getItem( request.params.fileid );
+
+  if ( !file || file.type == 'folder' ) {
+    reply.code(422);
+    return reply.send({error: `file not found with id ${request.params.fileid}`});
   }
 
-  const dbData = [];
-  for ( const [i, msgid] of file.parts.entries() ) {
-
-    dbData.push({
-      ch: String(file.channel).length > 10 ? String(file.channel).substring(3) : String(file.channel),
-      msg: msgid,
-      size: file.sizes[ i ]
-    });
-
-  }
+  const stream = new Stream.PassThrough();
+  stream.pause();
 
   // parse Range header 
   const headerRange = request.headers['range'];
   const range = headerRange || '';
   let {start, end} = parseRange(range);
 
-  const totalsize = dbData.reduce((acc, curr) => acc + curr.size, 0);
+  const path = await FSApi.buildPath(file);
+
+  let totalsize = file.sizes.reduce((acc, curr) => acc + curr, 0);
 
   if ( isNaN(start) ) {
     start = 0;
@@ -117,32 +112,35 @@ Fastify.get('/dwl/:fileid', async function (request, reply) {
     end = totalsize - 1;
   }
 
-  const stream = new PassThrough();
-  stream.on('data', (c) => Log.debug(`[${request.id}]`, 'sending', c.length));
-  const service = new Downloader(request.id, dbData, start, end);
+  const service = await FSApi.readFileContent(path.toString(), {start, end}, stream);
 
-  request.raw.on('error', () => {
-    if ( !service.aborted ) {
-      service.stop();
-      Log.warn('request has been aborted because of error')
-    } 
-  });
+  if ( service ) {
+    // file will be read from telegram
 
-  request.raw.on('aborted', () => {
-    if ( !service.aborted ) {
-      service.stop();
-      Log.warn('request has been aborted because of aborted')
-    } 
-  });
+    request.raw.on('error', () => {
+      if ( !service.aborted ) {
+        service.stop();
+        Log.warn('request has been aborted because of error')
+      } 
+    });
+  
+    request.raw.on('aborted', () => {
+      if ( !service.aborted ) {
+        service.stop();
+        Log.warn('request has been aborted because of aborted')
+      } 
+    });
+  
+    request.raw.on('close', () => {
+      if ( !service.aborted ) {
+        service.stop();
+        Log.warn('request has been aborted because of close')
+      } 
+    });
 
-  request.raw.on('close', () => {
-    if ( !service.aborted ) {
-      service.stop();
-      Log.warn('request has been aborted because of close')
-    } 
-  });
+  }
 
-  reply.code( headerRange ? 206 : 200)
+  reply.code( headerRange ? 206 : 200);
       
   reply.header('Content-Range', `bytes ${start}-${end}/${totalsize}`);
   reply.header('content-length', (end - start) + 1);
@@ -151,22 +149,14 @@ Fastify.get('/dwl/:fileid', async function (request, reply) {
   reply.header("accept-ranges", "bytes");
 
   reply.send(stream);
-
-  TelegramClients.nextClient();
-  const client = TelegramClients.Client;
-  service.execute(client, stream);
-
-  Log.info(`[${request.id}]`, 'responded');
-  Log.debug(reply.getHeaders());
+  stream.resume();
 
   await reply;
-
 });
 
-Fastify.post('/fld/:fldid/file', async function (request, reply) {
+Fastify.post('/folder/:fldid/file/:filename?', async function (request, reply) {
 
-
-  let parentfolder = request.params.fldid;
+  const {fldid: parentfolder, filename} = request.params;
 
   if ( !parentfolder) {
     reply.code(422);
@@ -175,26 +165,16 @@ Fastify.post('/fld/:fldid/file', async function (request, reply) {
 
   if ( !isUUID(parentfolder) ) {
     reply.code(422);
-    return await reply.send('invalid parentfolder');
+    return await reply.send('parentfolder id mismsatch');
   }
 
-  const parent = await getItem(parentfolder);
-  if ( !parent ) {
+  const parent = await DB.getItem(parentfolder);
+  if ( !parent || parent.type !== 'folder' ) {
     reply.code(404);
     return await reply.send(`parentfolder ${parentfolder} not exists`);
   }
 
-  let channelid = null, p = parent;
-  while ( !channelid ) {
-    p = await getItem(p.id);
-    channelid = p.channel;
-    if (p.id === ROOT_ID) break;
-    p = p.parentfolder;
-  }
-
-  if ( !channelid ) {
-    Log.info('file will be uploaded into default channel');
-  }
+  let path = await FSApi.buildPath(parent);
 
   let file = await request.file();
   
@@ -203,84 +183,140 @@ Fastify.post('/fld/:fldid/file', async function (request, reply) {
     return await reply.send(`file is missing`);
   }
 
-  let {mimetype, filename} = file;
+  let {filename: fn} = file;
 
-  mimetype = Mime.lookup(filename) || mimetype;
+  fn = filename || fn;
 
-  const f = await getItemByFilename(filename, parent.id);
-  if ( f && f.state == 'TEMP' ) {
-    Log.warn('delete already existing TEMPORARY file', filename, 'in', parent.filename);
-    await removeItem(f.id);
+  if ( !fn ) {
+    reply.code(422);
+    return await reply.send(`filename is missing`);
   }
 
-  const dbFile = await saveFile({
-    filename: filename,
-    originalFilename: filename,
-    type: mimetype,
-    // md5: 'string?',
-    // fileids: 'string[]',
-    // sizes: 'double[]',
-    // info: 'string{}',
-    // content: 'data?',
-    state: 'TEMP'
-  }, parentfolder);
+  path += `/${fn}`;
 
+  try {
 
-  TelegramClients.nextClient();
-  const client = TelegramClients.Client;
+    // TODO: stop request in case of close/aborted
 
-  const uploader = new Uploader(client, channelid, filename);
-
-  await uploader.prepare();
-
-  uploader.onCompleteUpload = async (portions, chl) => {
-    writeSync( () => {
-      dbFile.channel = chl;
-      dbFile.fileids = portions.map( (item) => item.fileId );
-      dbFile.sizes = portions.map( (item) => item.size );
-      dbFile.parts = portions.map( (item) => item.msgid );
-
-      dbFile.state = 'ACTIVE';
-
-      Log.info('file has been correctly uploaded, id: ', dbFile.id);
-
-      return reply.send('file is being upload');
+    await FSApi.createFileWithContent(path.toString(), 1, file.file, (dbFile) => {
+      return reply.code(201).send(`file correctly created: ${dbFile.id}`);
     });
-  };
 
-  Log.info('file is being uplaoded, id:', dbFile.id);
-  await uploader.execute(file.file);
+  } catch(e) {
+    Log.error(e);
+    reply.code(422).send(`cannot create file`);
+  }
+
+  await reply;
+});
+
+Fastify.post('/folder/:fldid/folder/:foldername', async function (request, reply) {
+  let {fldid: parentfolder, foldername} = request.params;
+
+  if ( !foldername ) {
+    reply.code(422);
+    return await reply.send('foldername is missing');
+  }
+
+  if ( !parentfolder ) {
+    reply.code(422);
+    return await reply.send('parentfolder must be specified');
+  }
+
+  if ( !isUUID(parentfolder) ) {
+    reply.code(422);
+    return await reply.send('parentfolder id mismsatch');
+  }
+
+  const parent = await DB.getItem(parentfolder);
+  if ( !parent || parent.type !== 'folder' ) {
+    reply.code(404);
+    return await reply.send(`parentfolder ${parentfolder} not exists`);
+  }
+
+  let path = await FSApi.buildPath(parent);
+
+  path += `/${foldername}`;
+
+  const dbFile = await FSApi.create(path.toString(), true);
+
+  reply.code(201).send(`folder created: ${dbFile.id}`);
 
 });
 
-Fastify.post('/folder', async function (request, reply) {
-  // HANDLE create folder
-  return reply.send('cannot handle yet');
-});
-
-Fastify.put('/file/:id', async function (request, reply) {
+Fastify.put('/file/:fileid', async function (request, reply) {
   // HANDLE rename/move file
   return reply.send('cannot handle yet');
 });
 
-Fastify.put('/folder/:id', async function (request, reply) {
+Fastify.put('/folder/:fldid', async function (request, reply) {
   // HANDLE rename/move folder
   return reply.send('cannot handle yet');
 });
 
-Fastify.delete('/file/:id', async function (request, reply) {
-  // HANDLE delete file
-  return reply.send('cannot handle yet');
+Fastify.delete('/file/:fileid', async function (request, reply) {
+
+  if ( !request.params.fileid ) {
+    reply.code(422);
+    return reply.send({error: 'invalid file id'});
+  }
+
+  const file = await DB.getItem( request.params.fileid );
+
+  if ( !file || file.type == 'folder' ) {
+    reply.code(422);
+    return reply.send({error: `file not found with id ${request.params.fileid}`});
+  }
+
+  try {
+    const path = await FSApi.buildPath(file);
+
+    await FSApi.delete(path.toString());
+
+    await reply.code(204).send(`file deleted!`);
+
+  } catch(e) {
+    Log.error(e);
+    await reply.code(422).send(`cannot delete file`);
+  }
 });
 
-Fastify.delete('/folder/:id', async function (request, reply) {
-  // HANDLE delete folder
-  return reply.send('cannot handle yet');
+Fastify.delete('/folder/:fldId', async function (request, reply) {
+
+  const {fldId} = request.params;
+
+  if ( !fldId ) {
+    reply.code(422);
+    return reply.send({error: 'invalid folder id'});
+  }
+
+  const folder = await DB.getItem(fldId);
+  if ( !folder || folder.type !== 'folder' ) {
+    reply.code(422);
+    return reply.send({error: `item ${fldId} is not a folder`});
+  }
+
+  const path = await FSApi.buildPath(folder);
+
+  try {
+
+    await FSApi.delete(path.toString(), true);
+
+    await reply.code(204).send(`folder has been correctly deleted`);
+
+  } catch(e) {
+    Log.error(e);
+    await reply.code(422).send(`cannot delete folder with id ${fldId}`);
+  }
 });
 
 
-Fastify.listen({ port: Config.httpPort }, (err, address) => {
-  Log.info('application is listening:', address, 'on port', Config.httpPort)
+Fastify.listen({ port: Config.httpPort }, async (err, address) => {
+  Log.info('application is listening:', address, 'on port', Config.httpPort);
+  
+  const rootFolder = await DB.getItem( DB.ROOT_ID );
+  FSApi = new FSApiLib( rootFolder );
+  
   if (err) {
     throw err
   }

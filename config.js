@@ -7,17 +7,24 @@ const Log = new Logger('Config');
 
 let Config = {};
 
+const UPLOAD_CHUNK = 512 * 1024;
+
 function loadConfig(args) {
   Log.log(`loading config file '${args.config}'`);
   
   const yaml = YAML.parse( FS.readFileSync(args.config, 'utf-8' ) );
+
+  const uploadMinSize = Number(yaml.telegram.upload.min_size) || 0;
+  if ( uploadMinSize % UPLOAD_CHUNK !== 0 ) {
+    throw `Upload Min Size must be: ( UploadMinSize % ${UPLOAD_CHUNK} == 0 )`
+  }
 
   Config = Object.assign(Config, {
     telegram: {
       database: String(yaml.telegram.database) == 'true',
       users: yaml.telegram.users,
       upload: {
-        min_size: Number(yaml.telegram.upload.min_size) || 0,
+        min_size: uploadMinSize,
         channel: String(yaml.telegram.upload.channel)
       }
     },
@@ -33,5 +40,6 @@ function loadConfig(args) {
 
 module.exports = {
   Config,
-  loadConfig
+  loadConfig,
+  UPLOAD_CHUNK
 };

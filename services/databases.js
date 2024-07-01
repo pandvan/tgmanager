@@ -127,7 +127,7 @@ async function getItemByFilename(filename, parent, type) {
   if ( parent ) {
     obj = obj.filtered(`parentfolder == $0`, parent);
   }
-  obj = obj.filtered(`filename ==[c] $0`, filename);
+  obj = obj.filtered(`filename ==[c] $0`, filename.replace(/\//gi, '-'));
 
   if ( type ) {
     obj = obj.filtered('type == $0', type);
@@ -141,7 +141,7 @@ async function getItemByFilename(filename, parent, type) {
 }
 
 async function checkExist(filename, parent, type, id) {
-  let obj = DB.objects(Entry.Name).filtered(`filename ==[c] $0 and parentfolder == $1`, filename, parent);
+  let obj = DB.objects(Entry.Name).filtered(`filename ==[c] $0 and parentfolder == $1`, filename.replace(/\//gi, '-'), parent);
   if ( id ) {
     // suppose 'modify' action
     obj = obj.filtered('id <> $0', id);
@@ -158,7 +158,7 @@ async function createFolder(parentId, foldername, data) {
 
   // check existing
   if ( await checkExist(foldername, parentId, 'folder', id) ) {
-    throw `Folder '${foldername}' already exists in '${parentId}' with id '${id}'`;
+    throw `Folder '${foldername}' already exists in '${parentId}'`;
   }
 
   return await write( () => {
@@ -173,7 +173,7 @@ async function createFolder(parentId, foldername, data) {
       sizes: [],
       ctime: Date.now(),
 
-    }, data), 'modified');
+    }, data), !!id ? 'modified' : undefined);
   });
 
 }
@@ -181,7 +181,7 @@ async function createFolder(parentId, foldername, data) {
 async function saveFile(file, parent) {
 
   // check existing
-  if ( await checkExist(file.filename, parent || file.parent, file.type, file.id) ) {
+  if ( await checkExist(file.filename, parent || file.parentfolder, file.type, file.id) ) {
     throw `File '${file.filename}' already exists in '${parent}'`;
   }
 
@@ -189,7 +189,7 @@ async function saveFile(file, parent) {
     file.filename = file.filename.replace(/\//gi, '-');
     file.parentfolder = parent || file.parentfolder;
     file.originalFilename = file.originalFilename || file.filename;
-    return DB.create( Entry.Name, file, 'modified');
+    return DB.create( Entry.Name, file, !!file.id ? 'modified' : undefined);
   })
 }
 
@@ -240,6 +240,13 @@ function writeSync(fn) {
 
 }
 
+function remap(item) {
+  const content = item.content;
+  const data = JSON.parse(JSON.stringify(item));
+  data.content = content;
+  return data;
+}
+
 
 async function getTelegramData(key) {
   return Promise.resolve( DB.objectForPrimaryKey(TelegramData.Name, key) );
@@ -273,5 +280,6 @@ module.exports = {
   getTelegramData,
   setTelegramData,
   removeItem,
-  close
+  close,
+  remap
 };

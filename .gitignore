@@ -12,3 +12,5 @@ create-fs.js
 parse-fs.js
 
 test-*.*
+
+env/
