@@ -1,7 +1,4 @@
 const Input = require('input');
-const ShortUniqueID = require('short-unique-id');
-
-const ShortUUID = new ShortUniqueID({length: 10});
 
 async function loginFlow(tg) {
 
@@ -62,18 +59,8 @@ function parseRange(header) {
   };
 }
 
-function getUUID() { 
-  return ShortUUID.randomUUID();
-}
-
-function isUUID(value) {
-  return ShortUUID.validate(value);
-}
-
 
 module.exports = {
   loginFlow,
-  parseRange,
-  getUUID,
-  isUUID
+  parseRange
 }

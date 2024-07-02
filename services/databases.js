@@ -1,8 +1,10 @@
 const Realm = require('realm');
-const {getUUID} = require('../utils');
 const Path = require('path');
 const {Config} = require('../config');
 const Logger = require('../logger');
+const ShortUniqueID = require('short-unique-id');
+
+const ShortUUID = new ShortUniqueID({length: 10});
 
 const Log = new Logger('DB');
 
@@ -16,16 +18,12 @@ class Entry extends Realm.Object {
   static schema = {
     name: ENTRY_NAME,
     properties: {
-      id: {type: 'string', indexed: true, default: getUUID},
+      id: {type: 'string', indexed: true, default: () => ShortUUID.randomUUID() },
       filename: {type: 'string', indexed: true},
       channel: 'string?',
-      parts: 'double[]',
+      parts: 'Part[]',
       parentfolder: 'string?',
-      originalFilename: 'string?',
       type: 'string',
-      md5: 'string?',
-      fileids: 'string[]',
-      sizes: 'double[]',
       info: 'string{}',
       content: 'data?',
       state: {type: 'string', default: () => 'ACTIVE'},
@@ -36,6 +34,21 @@ class Entry extends Realm.Object {
     primaryKey: 'id'
   };
 }
+
+class Part extends Realm.Object {
+  static schema = {
+    name: "Part",
+    embedded: true,
+    properties: {
+      messageid: 'double',
+      originalfilename: 'string?',
+      hash: 'string?',
+      fileid: 'string',
+      size: 'double'
+    },
+  };
+}
+
 
 class TelegramData extends Realm.Object {
   static Name = TELEGRAM_DATA_NAME;
@@ -59,8 +72,8 @@ async function initDatabase() {
 
   DB = await Realm.open({
     path: DB_PATH,
-    schema: [Entry, TelegramData],
-    schemaVersion: 5
+    schema: [Entry, Part, TelegramData],
+    schemaVersion: 1
   });
 
   const entryTable = DB.objects(Entry.Name);
@@ -265,6 +278,11 @@ async function close() {
 }
 
 
+function isUUID(value) {
+  return ShortUUID.validate(value);
+}
+
+
 module.exports = {
   ROOT_ID,
   initDatabase,
@@ -281,5 +299,6 @@ module.exports = {
   setTelegramData,
   removeItem,
   close,
-  remap
+  remap,
+  isUUID
 };

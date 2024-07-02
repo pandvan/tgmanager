@@ -4,6 +4,9 @@ const { getItem, ROOT_ID } = require('./services/databases');
 const TGFileSystem = require('./services/tg-filesystem');
 const FSApi = require('./services/fs-api');
 const {Config} = require('./config');
+const ShortUniqueID = require('short-unique-id');
+
+const ShortUUID = new ShortUniqueID({length: 5});
 
 const Log = new Logger('Webdav');
 
@@ -35,24 +38,29 @@ const WebDavServer = new Webdav.WebDAVServer({
   httpAuthentication
 });
 
+
 WebDavServer.beforeRequest((ctx, next) => {
-  Log.info('BEF:', ctx.request.method, ctx.requested.uri);
+  ctx.req_id = ShortUUID.randomUUID();
+  if ( String(Config.webdav.debug) == 'true' ) {
+    Log.info(`[${ctx.req_id}]`, 'request:', ctx.request.method, ctx.requested.uri, 'range:', ctx.request.headers.range);
+  }
   next();
 });
-WebDavServer.afterRequest((ctx, next) => {
-  Log.info('AFT:', ctx.request.method, ctx.response.statusCode);
-  Log.debug('REQ:', ctx.request.headers);
-  Log.debug('RES:', ctx.response._headers);
-  Log.debug(ctx.responseBody);
-  Logger.debug('');
-  next();
-});
+if ( String(Config.webdav.debug) == 'true' ) {
+  WebDavServer.afterRequest((ctx, next) => {
+    Log.debug(`[${ctx.req_id}]`, 'response headers:', ctx.response._headers);
+    Log.debug(`[${ctx.req_id}]`, 'body:', ctx.responseBody);
+    Logger.debug('');
+    next();
+  });
+}
+
 
 async function start() {
   const rootFolder = await getItem(ROOT_ID);
   const fsApi = new FSApi(rootFolder);
   WebDavServer.setFileSystemSync('/', new TGFileSystem(fsApi));
-  WebDavServer.start(() => Log.log('is running'));
+  WebDavServer.start(() => Log.info('up and running on port', Config.webdav.port));
 }
 
 start();

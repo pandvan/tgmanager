@@ -22,3 +22,4 @@ webdav:                   # enable webdav
   user: user              # webdav user auth
   pass: password          # webdav password for user
   port: 1900              # webdav listening port
+  debug: true / false     # enable debug log for each request

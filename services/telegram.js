@@ -167,6 +167,7 @@ class TelegramApi {
   async forwardMessage(msgId, chFrom, chTo) {
     return await this.apiCall('messages.forwardMessages', {
       silent: true,
+      drop_author: true,
       from_peer: {
         '_': 'inputPeerChannel',
         channel_id: chFrom.id,

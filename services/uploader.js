@@ -2,6 +2,8 @@ const ShortUniqueID = require('short-unique-id');
 const {Config, UPLOAD_CHUNK} = require('../config');
 const Mime = require('mime-types');
 const Logger = require('../logger');
+const Stream = require('stream');
+const EventEmitter = require('events');
 
 const Log = new Logger('Uploader');
 
@@ -9,7 +11,7 @@ const UUID = new ShortUniqueID({dictionary: 'number', length: 19});
 
 const CHUNK = UPLOAD_CHUNK;
 
-class Uploader {
+class Uploader extends EventEmitter {
   aborted = false;
 
   client = null;
@@ -17,27 +19,24 @@ class Uploader {
   totalFileParts = [];
   filename = '';
   currentFilePartIndex = -1;
-  _onPortionUploaded = null;
-  _onCompleteUpload = null;
   tgChannel = null;
   totalFileBytes = Buffer.alloc(0);
   sourceStream = null;
 
 
-  set onPortionUploaded(callback) {
-    this._onPortionUploaded = callback;
-  }
-  
-  set onCompleteUpload(callback) {
-    this._onCompleteUpload = callback;
-  }
-
   constructor(client, channelId, filename) {
-
+    super();
     this.client = client;
     this.filename = filename;
     this.channelId = channelId || Config.telegram.upload.channel;
 
+  }
+
+  stop() {
+    this.aborted = true;
+    this.sourceStream.removeAllListeners('data');
+    this.sourceStream.removeAllListeners('end');
+    this.sourceStream.destroy(new Error('aborted'));
   }
 
   async prepare() {
@@ -56,11 +55,11 @@ class Uploader {
 
     this.newPortionFile();
 
-    this.sourceStream = source;
+    this.sourceStream = new Stream.PassThrough();
 
     source.pause();
 
-    source.on('data', async (chunk) => {
+    this.sourceStream.on('data', async (chunk) => {
       if (buf) {
         buf = Buffer.concat([buf, chunk]);
       } else {
@@ -85,9 +84,9 @@ class Uploader {
 
     });
 
-    source.on('end', async () => {
+    this.sourceStream.on('end', async () => {
 
-      Log.debug('upload buffer completed:', buf.length, this.getCurrentPortion().currentPart + 1);
+      Log.debug('upload buffer completed:', buf.length, 'part:', this.getCurrentPortion().currentPart + 1);
 
       const uploadChunk = Uint8Array.prototype.slice.call(buf, 0, CHUNK);
       if ( uploadChunk.length ) {
@@ -95,12 +94,13 @@ class Uploader {
         await this.uploadChunk(uploadChunk, true);
       }
 
-      if ( this._onCompleteUpload ) {
-        await this._onCompleteUpload(this.totalFileParts, this.channelId);
+      if ( !this.aborted ) {
+        this.emit('completeUpload', this.totalFileParts, this.channelId);
       }
 
     });
 
+    source.pipe(this.sourceStream);
     // force resume stream
     source.resume();
   }
@@ -178,12 +178,14 @@ class Uploader {
         this.currentFilePartIndex++;
       }
 
-      await this.client.sendFileParts(
-        currentPortion.fileId,
-        currentPortion.currentPart,
-        (sendToChannel || lastChunk ? Math.ceil(currentPortion.size / CHUNK) : -1),
-        buffer,
-      );
+      if ( !this.aborted ) {
+        await this.client.sendFileParts(
+          currentPortion.fileId,
+          currentPortion.currentPart,
+          (sendToChannel || lastChunk ? Math.ceil(currentPortion.size / CHUNK) : -1),
+          buffer,
+        );
+      }
     }
 
     if ( sendToChannel || lastChunk ) {
@@ -198,6 +200,11 @@ class Uploader {
 
     if ( this.totalFileParts.length > 1 ) {
       filename = `${filename}.${ ('000' + String(portion.index + 1)).slice( -3 ) }`;
+    }
+
+    if ( this.aborted )  {
+      Log.warn(`cannot finish upload because of aborted`);
+      return;
     }
 
     if ( this.totalFileBytes !== null ) {
@@ -221,11 +228,11 @@ class Uploader {
       const {message} = res.updates.find( (u) => !!u.message );
       portion.msgid = message.id;
       portion.fileId = message.media.document.id;
+      portion.filename = message.media.document.attributes.find( i => i['_'] == 'documentAttributeFilename').file_name
+      // portion.hash = message.media.document.access_hah;
     }
 
-    if ( this._onPortionUploaded ) {
-      await this._onPortionUploaded(portion);
-    }
+    this.emit('portionUploaded', portion);
 
   }
 

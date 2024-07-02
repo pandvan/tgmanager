@@ -67,7 +67,11 @@ class FSApi {
       throw `'${path}' not found`;
     }
     if ( file.type !== 'folder' ) {
-      size = file.sizes.reduce( (acc, value) => acc += value, size);
+      if ( file.parts && file.parts.length > 0) {
+        size = file.parts.reduce( (acc, part) => acc += part.size, size);
+      } else if ( file.content ) {
+        size = file.content.byteLength;
+      }
     }
     return size;
   }
@@ -184,13 +188,13 @@ class FSApi {
         const sourceChannel = await client.getChannel(data.channel);
 
         for ( const part of parts ) {
-          const mess = await client.getMessage({id: sourceChannel.id, hash: sourceChannel.access_hash}, part);
+          const mess = await client.getMessage({id: sourceChannel.id, hash: sourceChannel.access_hash}, part.messageid);
           if ( mess ) {
             const {media} = mess;
             const {document} = media;
-            if ( data.fileids.includes(document.id) ) {
+            if ( part.fileid == document.id ) {
               // ok, proceed to delete message
-              const resp = await client.deleteMessage({id: sourceChannel.id, hash: sourceChannel.access_hash}, part);
+              const resp = await client.deleteMessage({id: sourceChannel.id, hash: sourceChannel.access_hash}, part.messageid);
               if (resp.pts_count !== 1) {
                 // callback(v2.Errors.InvalidOperation);
                 throw `Deleted more than 1 message`;
@@ -201,9 +205,9 @@ class FSApi {
               throw `File mismatch: fileid '${document.id}' is different for message '${mess.id}'`;
             }
           } else {
-            Log.error('cannot retrieve message from chat:', sourceChannel.id, 'part:', part);
+            Log.error('cannot retrieve message from chat:', sourceChannel.id, 'part:', part.messageid);
             // callback(v2.Errors.InvalidOperation);
-            throw `cannot retrieve message from chat: ${sourceChannel.id}, part: ${part}`;
+            throw `cannot retrieve message from chat: ${sourceChannel.id}, part: ${part.messageid}`;
           }
           
         }
@@ -217,7 +221,7 @@ class FSApi {
 
   }
 
-  async createFileWithContent(path, estimatedSize, stream, callback) {
+  async createFileWithContent(path, stream, callback) {
     const paths = this.splitPath(path);
     const folder = await this.getLastFolder(path, true);
 
@@ -225,11 +229,6 @@ class FSApi {
       throw `'${path}' not found`;
     }
     let filename = paths.pop();
-
-    if (estimatedSize <= 0) {
-      Log.info('skip upload because file is 0 bytes');
-      return null;
-    }
 
     let channelid = null, p = folder.id;
     while ( !channelid ) {
@@ -273,11 +272,11 @@ class FSApi {
 
     await uploader.prepare();
 
-    uploader.onCompleteUpload = async (portions, chl) => {
+    uploader.on('completeUpload', async (portions, chl) => {
       DB.writeSync( () => {
         dbFile.channel = chl;
-        dbFile.fileids = portions.map( (item) => String(item.fileId) );
-        dbFile.sizes = portions.map( (item) => item.size );
+        // dbFile.fileids = portions.map( (item) => String(item.fileId) );
+        // dbFile.sizes = portions.map( (item) => item.size );
 
         if (portions[0].content) {
           // file will be stored in DB
@@ -285,7 +284,16 @@ class FSApi {
           dbFile.parts = [];
         } else {
           dbFile.content = null;
-          dbFile.parts = portions.map( (item) => item.msgid );
+          // dbFile.parts = portions.map( (item) => item.msgid );
+          dbFile.parts = portions.map((item) => {
+            return {
+              messageid: item.msgid,
+              originalfilename: item.filename,
+              hash: '',
+              fileid: String(item.fileId),
+              size: Number(item.size)
+            };
+          })
         }
 
         dbFile.channel = channelid;
@@ -296,7 +304,7 @@ class FSApi {
         callback && callback(dbFile);
 
       });
-    };
+    });
 
     Log.info('file is being uploaded, id:', dbFile.id);
     
@@ -320,26 +328,13 @@ class FSApi {
       throw `'${path}' not found`;
     }
 
-    if (file.content) {
-      stream.write( Buffer.from(file.content) );
-      return null;
+    let totalsize = 0;
+    if (file.parts && file.parts.length > 0 ) {
+      totalsize = file.parts.reduce((acc, curr) => acc + curr.size, 0);
+    } else if ( file.content ) {
+      totalsize = file.content.byteLength;
     }
 
-    const dbData = [];
-    for ( const [i, msgid] of file.parts.entries() ) {
-
-      dbData.push({
-        ch: String(file.channel).length > 10 ? String(file.channel).substring(3) : String(file.channel),
-        msg: msgid,
-        size: file.sizes[ i ]
-      });
-
-    }
-
-    TelegramClients.nextClient();
-    const client = TelegramClients.Client;
-
-    let totalsize = file.sizes.reduce((acc, curr) => acc + curr, 0);
     if ( !totalsize ) {
       // TODO: calculate size
       // totalsize = await client.calculateSize(file.parts.slice(0));
@@ -352,6 +347,26 @@ class FSApi {
     if ( isNaN(end) ) {
       end = totalsize - 1;
     }
+
+    if (file.content) {
+      stream.write( Buffer.from(file.content).subarray(start, end + 1) );
+      return null;
+    }
+
+    const dbData = [];
+    for ( const part of file.parts ) {
+
+      dbData.push({
+        ch: String(file.channel).length > 10 ? String(file.channel).substring(3) : String(file.channel),
+        msg: part.messageid,
+        size: part.size
+      });
+
+    }
+
+    TelegramClients.nextClient();
+    const client = TelegramClients.Client;
+
 
     Log.info('serve file', filename, `, bytes: ${start}-${end}`, 'total:', totalsize);
 
@@ -403,6 +418,7 @@ class FSApi {
       if ( oldFile.type == 'folder' ) {
         await DB.createFolder(parentFolder.id, filename, {id: oldFileData.id});
       } else {
+        // TODO: move file into destination channel
         await DB.saveFile(oldFileData, parentFolder.id);
       }
 
@@ -412,7 +428,6 @@ class FSApi {
 
   async copy(pathFrom, pathTo) {
 
-    const pathsFrom = this.splitPath(pathFrom);
     const pathsTo = this.splitPath(pathTo);
 
     const oldFile = await this.getLastFolder(pathFrom);
@@ -461,13 +476,14 @@ class FSApi {
           let destinationChannel = sourceChannel;
 
           let newParts = [];
+          // TODO: get new parts
           for ( const part of oldFile.parts ) {
-            const resp = await client.forwardMessage(part, 
+            const resp = await client.forwardMessage(part.messageid, 
               {id: sourceChannel.id, hash: sourceChannel.access_hash},
               {id: destinationChannel.id, hash: destinationChannel.access_hash},
             );
             const msg = resp.updates.find( u => !!u.message );
-            newParts.push( msg.message.id );
+            newParts.push( { ...part, messageid: msg.message.id } );
           }
 
           await DB.saveFile( { ...data, channel: destinationChannel.id, filename, parentfolder: parentFolder.id, parts: newParts });

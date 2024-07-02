@@ -1,4 +1,4 @@
-const {parseRange, isUUID} = require('./utils');
+const {parseRange} = require('./utils');
 const Stream = require('stream');
 const TelegramClients = require('./services/clients');
 const Logger = require('./logger');
@@ -102,7 +102,7 @@ Fastify.get('/files/:fileid', async function (request, reply) {
 
   const path = await FSApi.buildPath(file);
 
-  let totalsize = file.sizes.reduce((acc, curr) => acc + curr, 0);
+  let totalsize = file.parts.reduce((acc, curr) => acc + curr.size, 0);
 
   if ( isNaN(start) ) {
     start = 0;
@@ -163,7 +163,7 @@ Fastify.post('/folder/:fldid/file/:filename?', async function (request, reply) {
     return await reply.send('parentfolder must be specified');
   }
 
-  if ( !isUUID(parentfolder) ) {
+  if ( !DB.isUUID(parentfolder) ) {
     reply.code(422);
     return await reply.send('parentfolder id mismsatch');
   }
@@ -196,11 +196,31 @@ Fastify.post('/folder/:fldid/file/:filename?', async function (request, reply) {
 
   try {
 
-    // TODO: stop request in case of close/aborted
-
-    await FSApi.createFileWithContent(path.toString(), 1, file.file, (dbFile) => {
+    const service = await FSApi.createFileWithContent(path.toString(), file.file, (dbFile) => {
       return reply.code(201).send(`file correctly created: ${dbFile.id}`);
     });
+
+    request.raw.on('error', () => {
+      if ( !service.aborted ) {
+        service.stop();
+        Log.warn('request has been aborted because of error');
+      } 
+    });
+  
+    request.raw.on('aborted', () => {
+      if ( !service.aborted ) {
+        service.stop();
+        Log.warn('request has been aborted because of aborted');
+      } 
+    });
+  
+    request.raw.on('close', () => {
+      if ( !service.aborted ) {
+        service.stop();
+        Log.warn('request has been aborted because of close');
+      } 
+    });
+
 
   } catch(e) {
     Log.error(e);
@@ -223,7 +243,7 @@ Fastify.post('/folder/:fldid/folder/:foldername', async function (request, reply
     return await reply.send('parentfolder must be specified');
   }
 
-  if ( !isUUID(parentfolder) ) {
+  if ( !DB.isUUID(parentfolder) ) {
     reply.code(422);
     return await reply.send('parentfolder id mismsatch');
   }
