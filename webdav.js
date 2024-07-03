@@ -27,7 +27,7 @@ class Authentication extends Webdav.HTTPBasicAuthentication {
 
 let httpAuthentication = null;
 
-if ( Config.webdav.user ) {
+if ( Config.webdav.user && Config.webdav.pass ) {
   const userManager = new Webdav.SimpleUserManager();
   userManager.addUser(Config.webdav.user, Config.webdav.pass, true);
   httpAuthentication = new Authentication(userManager);

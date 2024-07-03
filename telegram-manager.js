@@ -1,6 +1,6 @@
 const TelegramClients = require('./services/clients');
 const {Config} = require('./config');
-const {initDatabase} = require('./services/databases');
+const DB = require('./services/databases');
 const Logger = require('./logger');
 const Path = require('path');
 
@@ -8,19 +8,22 @@ const STRM = require('./services/strm');
 
 const Log = new Logger('APP');
 
+
+Logger.log(`----- STARTING UP [${process.pid}]------`);
+
 // Initializing app
 const Args = require('./initialize');
 
 async function start() {
 
   Log.log('Starting application');
-  await initDatabase();
+  await DB.initDatabase();
 
   for ( const user of Config.telegram.users){
     await TelegramClients.addClient( user );
   }
 
-  if ( Args.serve ) {
+  if ( Args.http ) {
     require('./server');
   }
   if ( Args.webdav ) {
@@ -32,10 +35,21 @@ async function start() {
 
 }
 
-async function main() {
-  
-  await start();
 
+process.on('uncaughtException', (err, origin) => {
+  Logger.log(
+    `Caught exception: ${err}\n` +
+    `Exception origin: ${origin}\n`,
+  );
+});
+
+function handle(signal) {
+  Logger.log(`---- Exit: ${signal} ----`);
+  DB.close();
+  process.exit(0);
 }
 
-main();
+process.on('SIGINT', handle);
+process.on('SIGTERM', handle);
+
+start();

@@ -1,5 +1,6 @@
 const YAML = require('yaml');
 const FS = require('fs');
+const Path = require('path');
 
 const Logger = require('./logger');
 
@@ -19,7 +20,7 @@ function loadConfig(args) {
     throw `Upload Min Size must be: ( UploadMinSize % ${UPLOAD_CHUNK} == 0 )`
   }
 
-  Config = Object.assign(Config, {
+  Object.assign(Config, {
     telegram: {
       database: String(yaml.telegram.database) == 'true',
       users: yaml.telegram.users,
@@ -28,15 +29,29 @@ function loadConfig(args) {
         channel: String(yaml.telegram.upload.channel)
       }
     },
-    data: args.data,
+    data: Path.resolve(args.data || yaml.data || Path.join(__dirname, 'data/') ),
+    
     db: process.env.DB || yaml.db,
-    logger: yaml.logger || 'info',
-    httpPort: process.env.HTTP_PORT || yaml.httpPort,
-    basic_auth: yaml.basic_auth,
-    webdav: yaml.webdav,
+    
+    logger: args.log || yaml.logger || 'info',
+
+    http: {
+      port: process.env.HTTP_PORT || args.httpPort || (yaml.http && yaml.http.port),
+      user: args.httpUser || (yaml.http && yaml.http.user),
+      pass: args.httpPass || (yaml.http && yaml.http.pass),
+      debug: args.httpDebug || (yaml.http && yaml.http.debug)
+    },
+    webdav: {
+      port: process.env.WEBDAV_PORT || args.webdavPort || (yaml.webdav && yaml.webdav.port),
+      user: args.webdavUser || (yaml.webdav && yaml.webdav.user),
+      pass: args.webdavPass || (yaml.webdav && yaml.webdav.pass),
+      debug: args.webdavDebug || (yaml.webdav && yaml.webdav.debug)
+    },
+
     strm: {
-      enabled: yaml.strm ? String(yaml.strm.enable) == 'true' : false,
-      url: yaml.strm ? yaml.strm.url : ''
+      url: args.strmUrl || (yaml.strm && yaml.strm.url),
+      folder: args.strmFolder || (yaml.strm && yaml.strm.folder),
+      debug: args.strmDebug || (yaml.strm && yaml.strm.debug)
     }
   });
 

@@ -16,13 +16,13 @@ const Log = new Logger('HttpServer');
 let FSApi = null;
 
 const Fastify = require('fastify')({
-  // logger: true
+  logger: String(Config.http.debug) == 'true'
 });
 
-if ( Config.basic_auth ) {
+if ( Config.http.user && Config.http.pass ) {
   Fastify.register(require('@fastify/basic-auth'), {
     validate: (username, password, req, reply, done) => {
-      if (username === Config.basic_auth.user && password === Config.basic_auth.pass ) {
+      if (username === Config.http.user && password === Config.http.pass ) {
         done();
       } else {
         done(new Error('Invalid authentication'))
@@ -329,13 +329,14 @@ Fastify.delete('/folder/:fldId', async function (request, reply) {
 });
 
 
-Fastify.listen({ port: Config.httpPort }, async (err, address) => {
+Fastify.listen({ port: Config.http.port }, async (err, address) => {
   Log.info('application is listening:', address, 'on port', Config.httpPort);
   
   const rootFolder = await DB.getItem( DB.ROOT_ID );
   FSApi = new FSApiLib( rootFolder );
   
   if (err) {
+    Log.error(err);
     throw err
   }
 })
