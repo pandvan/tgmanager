@@ -3,8 +3,11 @@ const Path = require('path');
 const {Config} = require('../config');
 const Logger = require('../logger');
 const ShortUniqueID = require('short-unique-id');
+const Events = require('events');
 
 const ShortUUID = new ShortUniqueID({length: 10});
+
+const Event = new Events.EventEmitter();
 
 const Log = new Logger('DB');
 
@@ -140,7 +143,16 @@ async function removeItem(itemId) {
     throw 'Cannot remote root folder';
   }
   const item = DB.objectForPrimaryKey(Entry.Name, itemId);
-  await write(() => DB.delete( item ) );
+  await write(() => {
+
+    const itemData = remap(item);
+
+    const ret = DB.delete( item );
+
+    Event.emit('deleted', itemData);
+
+    return ret;
+  });
 }
 
 async function getItemByFilename(filename, parent, type) {
@@ -181,38 +193,21 @@ async function createFolder(folder, parent) {
   }
 
   return await write( () => {
+    
+    let oldFold = remap(folder);
+
     folder.type = 'folder',
     folder.filename = folder.filename.replace(/\//gi, '-');
     folder.parentfolder = parent || folder.parentfolder;
     folder.originalFilename = folder.originalFilename || folder.filename;
-    return DB.create( Entry.Name, folder, !!folder.id ? 'modified' : undefined);
+    let newFold = DB.create( Entry.Name, folder, !!folder.id ? 'modified' : undefined);
+
+    newFold = remap(newFold);
+
+    Event.emit(oldFold.id ? 'changed' : 'created', newFold, oldFold);
+
+    return newFold;
   })
-}
-
-async function createFolder_(parentId, foldername, data) {
-
-  const {channel, id} = data || {};
-
-  // check existing
-  if ( await checkExist(foldername, parentId, 'folder', id) ) {
-    throw `Folder '${foldername}' already exists in '${parentId}'`;
-  }
-
-  return await write( () => {
-    return DB.create( Entry.Name, Object.assign({
-      id,
-      filename: foldername.replace(/\//gi,'-'),
-      originalFilename: foldername,
-      channel,
-      parts: [],
-      parentfolder: parentId,
-      type: 'folder',
-      sizes: [],
-      ctime: Date.now(),
-
-    }, data), !!id ? 'modified' : undefined);
-  });
-
 }
 
 async function saveFile(file, parent) {
@@ -223,11 +218,21 @@ async function saveFile(file, parent) {
   }
 
   return await write( () => {
+
+    const oldFile = remap(file);
+
     file.filename = file.filename.replace(/\//gi, '-');
     file.parentfolder = parent || file.parentfolder;
     file.originalFilename = file.originalFilename || file.filename;
-    return DB.create( Entry.Name, file, !!file.id ? 'modified' : undefined);
-  })
+    let newFile = DB.create( Entry.Name, file, !!file.id ? 'modified' : undefined);
+
+    newFile = remap(newFile);
+
+    Event.emit(oldFile.id ? 'changed' : 'created', newFile, oldFile);
+
+    return newFile;
+
+  });
 }
 
 
@@ -324,5 +329,6 @@ module.exports = {
   removeItem,
   close,
   remap,
-  isUUID
+  isUUID,
+  Event
 };
