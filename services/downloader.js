@@ -146,7 +146,7 @@ class Downloader {
       const {document} = media;
       const {id, access_hash, file_reference} = document;
   
-      Log.debug(`[${this.id}]`, 'ready for streaming');
+      Log.debug(`[${this.id}]`, 'ready for download');
       await this.performStream(client, {id, access_hash, file_reference}, start, end, destination);
 
       if ( this.aborted ) {
@@ -182,7 +182,7 @@ class Downloader {
     Log.debug(`[${this.id}]`, 'stream from', start, end);
   
     while(true) {
-      Log.debug(`[${this.id}]`, 'get file from telegram', offset);
+      // Log.debug(`[${this.id}]`, 'get file from telegram', offset);
       const tgFile = await client.getFile({id, access_hash, file_reference}, offset, CHUNK);
   
       let firstByte = 0;
@@ -199,14 +199,12 @@ class Downloader {
       }
   
       const buf = Uint8Array.prototype.slice.call(tgFile.bytes, firstByte, lastByte);
-      Log.debug(`[${this.id}]`, 'write', buf.length);
+      // Log.debug(`[${this.id}]`, 'write', buf.length);
       stream.write(  buf );
   
       offset += CHUNK;
   
       if ( needStop || this.aborted ) { 
-        Log.debug(`[${this.id}]`, 'stop streaming');
-        stream.end();
         break
       }
     }

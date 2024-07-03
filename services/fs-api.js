@@ -80,13 +80,17 @@ class FSApi {
     const folder = await this.getLastFolder(path, true);
 
     if ( !folder ) {
+      Log.error(path, 'not found');
       throw `'${path}' not found`;
     }
     let filename = this.splitPath(path).pop();
     
     if (isFolder) {
 
-      const newFolder = await DB.createFolder(folder.id, filename);
+      const newFolder = await DB.createFolder({
+        parentfolder: folder.id,
+        filename: filename
+      }, folder.id);
 
       return newFolder;
     } else {
@@ -107,7 +111,7 @@ class FSApi {
       const dbFile = await DB.saveFile({
         filename: filename,
         originalFilename: filename,
-        type: Mime.lookup(filename),
+        type: Mime.lookup(filename) || 'application/octet-stream',
         channel: channelid,
         // md5: 'string?',
         // fileids: 'string[]',
@@ -398,10 +402,10 @@ class FSApi {
       // open transaction
 
       while(pathsTo.length - 1) {
-        let foldeName = pathsTo.shift()
-        let destPath = await DB.getItemByFilename( foldeName, parentFolder.id, 'folder');
+        let folderName = pathsTo.shift()
+        let destPath = await DB.getItemByFilename( folderName, parentFolder.id, 'folder');
         if ( !destPath ) {
-          destPath = await DB.createFolder(parentFolder.id, foldeName);
+          destPath = await DB.createFolder({filename: folderName}, parentFolder.id);
         }
         parentFolder = destPath;
       }
@@ -416,7 +420,11 @@ class FSApi {
 
       //  v2.ResourceType.Directory : v2.ResourceType.File
       if ( oldFile.type == 'folder' ) {
-        await DB.createFolder(parentFolder.id, filename, {id: oldFileData.id});
+        await DB.createFolder({
+          parentfolder: parentFolder.id, 
+          filename, 
+          id: oldFileData.id
+        }, parentFolder.id);
       } else {
         // TODO: move file into destination channel
         await DB.saveFile(oldFileData, parentFolder.id);
@@ -440,13 +448,14 @@ class FSApi {
 
       let parentFolder = await DB.getItem(DB.ROOT_ID);
 
-      // let destChannel = null;
-
       while(pathsTo.length - 1) {
-        let foldeName = pathsTo.shift();
-        let destPath = await DB.getItemByFilename( foldeName, parentFolder.id, 'folder');
+        let folderName = pathsTo.shift();
+        let destPath = await DB.getItemByFilename( folderName, parentFolder.id, 'folder');
         if ( !destPath ) {
-          destPath = await DB.createFolder(parentFolder.id, foldeName);
+          destPath = await DB.createFolder({
+            filename: folderName,
+            parentfolder: parentFolder.id
+          }, parentFolder.id);
         }
         parentFolder = destPath;
         // destChannel = parentFolder.channel || destChannel;
@@ -456,7 +465,11 @@ class FSApi {
       let filename = pathsTo.shift();
 
       if ( oldFile.type == 'folder' ) {
-        await DB.createFolder(parentFolder.id, filename);
+        await DB.createFolder({
+          filename: filename,
+          parentfolder: parentFolder.id,
+          id: oldFile.id
+        }, parentFolder.id);
       } else {
 
         const data = DB.remap(oldFile);

@@ -9,6 +9,7 @@ const ShortUUID = new ShortUniqueID({length: 10});
 const Log = new Logger('DB');
 
 const ROOT_ID = '0000000000';
+const ROOT_NAME = 'root';
 const ENTRY_NAME = 'entries';
 const TELEGRAM_DATA_NAME = 'telegramdata';
 
@@ -82,7 +83,14 @@ async function initDatabase() {
   const rootFolder = await getItem(ROOT_ID);
   if ( !rootFolder ) {
     Log.warn('root folder not exists, create a new one');
-    await createFolder(null, 'root', {id: ROOT_ID, channel: Config.telegram.upload.channel});
+    await createFolder(
+      {
+        id: ROOT_ID, 
+        channel: Config.telegram.upload.channel,
+        filename: ROOT_NAME,
+        type: 'folder'
+      }
+      , null );
   }
 }
 
@@ -165,7 +173,23 @@ async function checkExist(filename, parent, type, id) {
   return obj.length > 0;
 }
 
-async function createFolder(parentId, foldername, data) {
+async function createFolder(folder, parent) {
+
+  // check existing
+  if ( await checkExist(folder.filename, parent || folder.parentfolder, 'folder', folder.id) ) {
+    throw `Folder '${folder.filename}' already exists in '${parent}'`;
+  }
+
+  return await write( () => {
+    folder.type = 'folder',
+    folder.filename = folder.filename.replace(/\//gi, '-');
+    folder.parentfolder = parent || folder.parentfolder;
+    folder.originalFilename = folder.originalFilename || folder.filename;
+    return DB.create( Entry.Name, folder, !!folder.id ? 'modified' : undefined);
+  })
+}
+
+async function createFolder_(parentId, foldername, data) {
 
   const {channel, id} = data || {};
 

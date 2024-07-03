@@ -1,10 +1,8 @@
 const {parseRange} = require('./utils');
 const Stream = require('stream');
-const TelegramClients = require('./services/clients');
 const Logger = require('./logger');
 const {Config} = require('./config');
 const Multipart = require('@fastify/multipart');
-const Mime = require('mime-types');
 const Pug = require('pug');
 const Path = require('path');
 const FastifyView = require('@fastify/view');
@@ -13,7 +11,7 @@ const FastifyStatic = require('@fastify/static');
 
 const FSApiLib = require('./services/fs-api');
 
-const Log = new Logger('Server');
+const Log = new Logger('HttpServer');
 
 let FSApi = null;
 

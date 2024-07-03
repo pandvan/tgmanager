@@ -69,16 +69,40 @@ class TGFileSystem extends v2.VirtualFileSystem {
     this.resources['/'] = new TGResource(fsApi.Root.size, fsApi.Root.mtime, fsApi.Root.ctime, 'folder');
   }
 
+  async _creationDate(path, ctx, callback) {
+    try {
+      const dbFile = await this.fsApi.getLastFolder(path.toString()); 
+      if ( dbFile ) {
+        callback(null, dbFile.ctime);
+      }
+    } catch(e) {
+      Log.error('[ctime]', e);
+      callback(v2.Errors.ResourceNotFound);
+    }
+  }
+  
+  async _lastModifiedDate(path, ctx, callback) {
+    try {
+      const dbFile = await this.fsApi.getLastFolder(path.toString()); 
+      if ( dbFile ) {
+        callback(null, dbFile.mtime);
+      }
+    } catch(e) {
+      Log.error('[mtime]', e);
+      callback(v2.Errors.ResourceNotFound);
+    }
+  }
+
   async move(ctx, pathFrom, pathTo, overwrite, callback) {
 
-
+    Log.info('[move]', `'${pathFrom.toString()}'`, '->', `'${pathTo.toString()}'`);
     try {
 
       await this.fsApi.move(pathFrom.toString(), pathTo.toString());
       callback(null, true);
 
     } catch(e) {
-      Log.error(e);
+      Log.error('[move]', e);
       callback(v2.Errors.ResourceNotFound);
     }
 
@@ -86,6 +110,9 @@ class TGFileSystem extends v2.VirtualFileSystem {
   }
 
   async copy(ctx, pathFrom, pathTo, overwrite, callback) {
+
+    Log.info('[copy]', `'${pathFrom.toString()}'`, '->', `'${pathTo.toString()}'`);
+
     const item = this.resources[ pathFrom.toString() ];
     if ( !item ) {
       return callback(v2.Errors.ResourceNotFound);
@@ -97,13 +124,13 @@ class TGFileSystem extends v2.VirtualFileSystem {
       callback(null, true);
 
     } catch(e) {
-      Log.error(e);
+      Log.error('[copy]', e);
       callback(v2.Errors.ResourceNotFound);
     }
   }
 
   async rename(ctx, pathFrom, newName, callback) {
-    Log.log('rename:', pathFrom.toString(), newName.toString());
+    Log.log('[rename]', `'${pathFrom.toString()}'`, `'${newName.toString()}'`);
     callback(v2.Errors.InvalidOperation);
   }
 
@@ -122,14 +149,14 @@ class TGFileSystem extends v2.VirtualFileSystem {
       const size = await this.fsApi.size(path.toString());
       callback(null, size);
     } catch(e) {
-      Log.error(e);
+      Log.error('[size]', e);
       callback(v2.Errors.ResourceNotFound);
     }
   }
 
 
   async _create(path, ctx, callback) {
-
+    Log.info('[create]', `'${path.toString()}'`, ctx.type.isDirectory ? 'folder' : 'file');
     try {
 
       const dbFile = await this.fsApi.create(path.toString(), ctx.type.isDirectory);
@@ -138,14 +165,14 @@ class TGFileSystem extends v2.VirtualFileSystem {
       callback(null, true);
 
     } catch(e) {
-      Log.error(e);
+      Log.error('[create]', e);
       callback(v2.Errors.ResourceNotFound);
     }
 
   }
 
   async _readDir(path, ctx, callback) {
-
+    Log.info('[listdir]', `'${path.toString()}'`);
     try {
 
       const res = await this.fsApi.listDir(path.toString());
@@ -161,18 +188,20 @@ class TGFileSystem extends v2.VirtualFileSystem {
       callback(null, response);
 
     } catch(e) {
-      Log.error(e);
+      Log.error('[listdir]', e);
       callback(v2.Errors.ResourceNotFound);
     }
 
   }
 
   async _openReadStream(path, ctx, callback) {
-
     const stream = new Stream.PassThrough();
 
     const headerRange = ctx.context.headers.headers.range;
     const range = headerRange || '';
+
+    Log.info('[readfile]', `'${path.toString()}'`, range || '');
+
     let {start, end} = parseRange(range);
 
     try {
@@ -186,21 +215,21 @@ class TGFileSystem extends v2.VirtualFileSystem {
         ctx.context.request.on('error', () => {
           if ( !service.aborted ) {
             service.stop();
-            Log.warn('request has been aborted because of error')
+            Log.warn('[readfile]', 'request has been aborted because of error')
           } 
         });
       
         ctx.context.request.on('aborted', () => {
           if ( !service.aborted ) {
             service.stop();
-            Log.warn('request has been aborted because of aborted')
+            Log.warn('[readfile]', 'request has been aborted because of aborted')
           } 
         });
       
         ctx.context.request.on('close', () => {
           if ( !service.aborted ) {
             service.stop();
-            Log.warn('request has been aborted because of close')
+            Log.warn('[readfile]', 'request has been aborted because of close')
           } 
         });
 
@@ -231,7 +260,7 @@ class TGFileSystem extends v2.VirtualFileSystem {
       }
 
     } catch(e) {
-      Log.error(e);
+      Log.error('[readfile]', e);
       callback(v2.Errors.ResourceNotFound);
     }
 
@@ -240,8 +269,11 @@ class TGFileSystem extends v2.VirtualFileSystem {
 
   async _delete(path, ctx, callback) {
 
+    Log.info('[delete]', `'${path.toString()}'`);
+
     const resource = this.resources[path.toString()];
     if (!resource) {
+      Log.warn('[delete]', `'${path.toString()}' not foundin cache`);
       return callback(v2.Errors.ResourceNotFound);
     }
 
@@ -261,7 +293,7 @@ class TGFileSystem extends v2.VirtualFileSystem {
       callback(null, true);
 
     } catch(e) {
-      Log.error(e);
+      Log.error('[delete]', e);
       callback(v2.Errors.ResourceNotFound);
     }
 
@@ -270,21 +302,24 @@ class TGFileSystem extends v2.VirtualFileSystem {
 
   async _openWriteStream(path, ctx, callback) {
 
+    Log.info('[writefile]', `'${path.toString()}'`);
+
     const stream = new Stream.PassThrough();
 
     if (ctx.estimatedSize <= 0) {
-      Logger.info('skip upload because file is 0 bytes');
+      Log.info('[writefile]', 'skip upload because file is 0 bytes');
       return callback(null, stream);
     }
 
     try {
 
-      const service = await this.fsApi.createFileWithContent(path.toString(), stream, (dbFile) => {
+      await this.fsApi.createFileWithContent(path.toString(), stream, (dbFile) => {
         this.resources[path.toString()] = TGResource.fromItem(dbFile);
 
         for (const cb of lastHandlers) {
           cb.apply(stream);
         }
+        Log.debug('[writefile]', 'file correctly created and saved in cache');
       });
 
       /**
@@ -321,7 +356,7 @@ class TGFileSystem extends v2.VirtualFileSystem {
 
 
     } catch(e) {
-      Log.error(e);
+      Log.error('[writefile]', e);
       callback(v2.Errors.ResourceNotFound);
     }
 
