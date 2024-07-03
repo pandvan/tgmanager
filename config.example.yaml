@@ -23,3 +23,7 @@ webdav:                   # enable webdav
   pass: password          # webdav password for user
   port: 1900              # webdav listening port
   debug: true / false     # enable debug log for each request
+
+strm:
+  enable: true / false    # enable / disable strm file generation
+  server: http://127.0.0.1/files/{fileid}  # url for server that serves files

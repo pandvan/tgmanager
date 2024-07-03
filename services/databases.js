@@ -16,6 +16,8 @@ const ROOT_NAME = 'root';
 const ENTRY_NAME = 'entries';
 const TELEGRAM_DATA_NAME = 'telegramdata';
 
+const Emitter = new Events.EventEmitter();
+
 class Entry extends Realm.Object {
   static Name = ENTRY_NAME;
 
@@ -217,6 +219,8 @@ async function saveFile(file, parent) {
     throw `File '${file.filename}' already exists in '${parent}'`;
   }
 
+  const oldFile = remap(file);
+
   return await write( () => {
 
     const oldFile = remap(file);
@@ -309,6 +313,15 @@ async function close() {
 
 function isUUID(value) {
   return ShortUUID.validate(value);
+}
+
+
+function on() {
+  Emitter.on.apply(Emitter, arguments);
+}
+
+function emit() {
+  Emitter.emit.apply(Emitter, arguments);
 }
 
 

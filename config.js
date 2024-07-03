@@ -33,7 +33,11 @@ function loadConfig(args) {
     logger: yaml.logger || 'info',
     httpPort: process.env.HTTP_PORT || yaml.httpPort,
     basic_auth: yaml.basic_auth,
-    webdav: yaml.webdav
+    webdav: yaml.webdav,
+    strm: {
+      enabled: yaml.strm ? String(yaml.strm.enable) == 'true' : false,
+      url: yaml.strm ? yaml.strm.url : ''
+    }
   });
 
 } 

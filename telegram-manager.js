@@ -2,6 +2,9 @@ const TelegramClients = require('./services/clients');
 const {Config} = require('./config');
 const {initDatabase} = require('./services/databases');
 const Logger = require('./logger');
+const Path = require('path');
+
+const STRM = require('./services/strm');
 
 const Log = new Logger('APP');
 
@@ -22,6 +25,9 @@ async function start() {
   }
   if ( Args.webdav ) {
     require('./webdav');
+  }
+  if ( Args.strm ) {
+    STRM.init( Path.resolve(Args.strm) );
   }
 
 }

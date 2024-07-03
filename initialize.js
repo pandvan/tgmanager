@@ -31,6 +31,11 @@ const Args = Yargs( hideBin(process.argv) )
     type: 'boolean',
     default: false
   })
+  .option('strm', {
+    describe: 'start strm generation in specified folder',
+    type: 'string',
+    default: false
+  })
   .argv;
 
 

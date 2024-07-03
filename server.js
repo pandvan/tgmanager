@@ -68,7 +68,7 @@ Fastify.get('/folder/:fldId', async (request, reply) => {
     return reply.send({error: `item ${fldId} is not a folder`});
   }
 
-  const paths = await FSApi.buildPath(folder);
+  const paths = await FSApiLib.buildPath(folder);
   const children = await FSApi.listDir(paths);
 
   return reply.send( children.slice(1) );
@@ -98,7 +98,7 @@ Fastify.get('/files/:fileid', async function (request, reply) {
   const range = headerRange || '';
   let {start, end} = parseRange(range);
 
-  const path = await FSApi.buildPath(file);
+  const path = await FSApiLib.buildPath(file);
 
   let totalsize = file.parts.reduce((acc, curr) => acc + curr.size, 0);
 
@@ -172,7 +172,7 @@ Fastify.post('/folder/:fldid/file/:filename?', async function (request, reply) {
     return await reply.send(`parentfolder ${parentfolder} not exists`);
   }
 
-  let path = await FSApi.buildPath(parent);
+  let path = await FSApiLib.buildPath(parent);
 
   let file = await request.file();
   
@@ -252,7 +252,7 @@ Fastify.post('/folder/:fldid/folder/:foldername', async function (request, reply
     return await reply.send(`parentfolder ${parentfolder} not exists`);
   }
 
-  let path = await FSApi.buildPath(parent);
+  let path = await FSApiLib.buildPath(parent);
 
   path += `/${foldername}`;
 
@@ -287,7 +287,7 @@ Fastify.delete('/file/:fileid', async function (request, reply) {
   }
 
   try {
-    const path = await FSApi.buildPath(file);
+    const path = await FSApiLib.buildPath(file);
 
     await FSApi.delete(path.toString());
 
@@ -314,7 +314,7 @@ Fastify.delete('/folder/:fldId', async function (request, reply) {
     return reply.send({error: `item ${fldId} is not a folder`});
   }
 
-  const path = await FSApi.buildPath(folder);
+  const path = await FSApiLib.buildPath(folder);
 
   try {
 

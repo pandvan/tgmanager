@@ -20,7 +20,7 @@ class FSApi {
   }
 
 
-  async buildPath(item) {
+  static async buildPath(item, sep = '/') {
     const paths = item.id == DB.ROOT_ID ? [] : [ item.filename ];
     let p = item;
     while ( p.parentfolder ) {
@@ -28,7 +28,7 @@ class FSApi {
       if ( !p || p.id == DB.ROOT_ID ) break;
       paths.unshift( p.filename );
     }
-    return paths.join('/');
+    return paths.join(sep);
   }
 
   splitPath(path) {
@@ -158,7 +158,7 @@ class FSApi {
 
       if ( recursively ) {
         await DB.write(async () => {
-          const itemPath = await this.buildPath( item );
+          const itemPath = await FSApi.buildPath( item );
           const children = await this.listDir( itemPath );
           children.shift();
           for ( const ch of children) {
