@@ -44,7 +44,7 @@ class FSApi {
   }
 
   async getLastFolder(path, skipLast) {
-    let paths = this.splitPath(path)
+    let paths = this.splitPath(path);
     if ( skipLast ) {
       paths.pop();
     }
@@ -89,7 +89,8 @@ class FSApi {
 
       const newFolder = await DB.createFolder({
         parentfolder: folder.id,
-        filename: filename
+        filename: filename,
+        type: 'folder'
       }, folder.id);
 
       return newFolder;
@@ -108,9 +109,8 @@ class FSApi {
         channelid = Config.telegram.upload.channel;
       }
 
-      const dbFile = await DB.saveFile({
+      const dbFile = await DB.createFile({
         filename: filename,
-        originalFilename: filename,
         type: Mime.lookup(filename) || 'application/octet-stream',
         channel: channelid,
         // md5: 'string?',
@@ -154,7 +154,6 @@ class FSApi {
     Log.info(`trying to delete '${item.filename}' [${item.id}], type: ${item.type}`);
 
     if (item.type == 'folder') {
-      // TODO: delete folder recursively
 
       if ( recursively ) {
         await DB.write(async () => {
@@ -247,49 +246,62 @@ class FSApi {
       channelid = Config.telegram.upload.channel;
     }
 
-    let dbFile = await DB.getItemByFilename(filename, folder.id);
-    if ( dbFile && dbFile.state == 'TEMP' ) {
-      Log.warn('delete already existing TEMPORARY file', filename, 'in', folder.filename);
-      await DB.removeItem(dbFile.id);
-      dbFile = {}
-    }
-
-    dbFile = await DB.saveFile({
-      filename: filename,
-      channel: channelid,
-      originalFilename: filename,
-      type: Mime.lookup(filename),
-      parentfolder: folder.id,
-      // md5: 'string?',
-      // fileids: 'string[]',
-      // sizes: 'double[]',
-      // info: 'string{}',
-      // content: 'data?',
-      state: 'TEMP',
-      id: dbFile ? dbFile.id : undefined
-    }, folder.id);
-
     TelegramClients.nextClient();
     const client = TelegramClients.Client;
 
     const uploader = new Uploader(client, channelid, filename);
 
+    let dbFile = await DB.getItemByFilename(filename, folder.id);
+    if ( dbFile && dbFile.state == 'TEMP' ) {
+      Log.warn('already existing TEMPORARY file', filename, 'in', folder.filename);
+      // await DB.removeItem(dbFile.id);
+    }
+
+    if ( dbFile && dbFile.id ) {
+      dbFile = await DB.updateFile(dbFile, {
+        filename: filename,
+        channel: channelid,
+        type: Mime.lookup(filename),
+        parentfolder: folder.id,
+      }, folder.id);
+    } else {
+      // create a new temp file
+      dbFile = await DB.createFile({
+        filename: filename,
+        channel: channelid,
+        type: Mime.lookup(filename),
+        parentfolder: folder.id,
+        // md5: 'string?',
+        // fileids: 'string[]',
+        // sizes: 'double[]',
+        // info: 'string{}',
+        // content: 'data?',
+        state: 'TEMP',
+      }, folder.id);
+
+      uploader.on('stopped', async () => {
+        await DB.removeItem(dbFile.id);
+      });
+    }
+    
+
     await uploader.prepare();
 
     uploader.on('completeUpload', async (portions, chl) => {
-      DB.writeSync( () => {
-        dbFile.channel = chl;
+      await DB.write( async () => {
+        const newFileData = {};
+        newFileData.channel = chl;
         // dbFile.fileids = portions.map( (item) => String(item.fileId) );
         // dbFile.sizes = portions.map( (item) => item.size );
 
         if (portions[0].content) {
           // file will be stored in DB
-          dbFile.content = portions[0].content;
-          dbFile.parts = [];
+          newFileData.content = portions[0].content;
+          newFileData.parts = [];
         } else {
-          dbFile.content = null;
+          newFileData.content = null;
           // dbFile.parts = portions.map( (item) => item.msgid );
-          dbFile.parts = portions.map((item) => {
+          newFileData.parts = portions.map((item) => {
             return {
               messageid: item.msgid,
               originalfilename: item.filename,
@@ -300,8 +312,10 @@ class FSApi {
           })
         }
 
-        dbFile.channel = channelid;
-        dbFile.state = 'ACTIVE';
+        newFileData.channel = channelid;
+        newFileData.state = 'ACTIVE';
+
+        await DB.updateFile(dbFile, newFileData);
 
         Log.info('file has been correctly uploaded, id: ', dbFile.id);
 
@@ -310,7 +324,7 @@ class FSApi {
       });
     });
 
-    Log.info('file is being uploaded, id:', dbFile.id);
+    Log.info('file', filename, 'is being uploaded, id:', dbFile.id);
     
     // start upload and attach 'data' and 'finish' handler
     uploader.execute(stream);
@@ -405,7 +419,11 @@ class FSApi {
         let folderName = pathsTo.shift()
         let destPath = await DB.getItemByFilename( folderName, parentFolder.id, 'folder');
         if ( !destPath ) {
-          destPath = await DB.createFolder({filename: folderName}, parentFolder.id);
+          destPath = await DB.createFolder({
+            parentfolder: parentFolder.id,
+            filename: folderName,
+            type: 'folder'
+          }, parentFolder.id);
         }
         parentFolder = destPath;
       }
@@ -415,19 +433,19 @@ class FSApi {
 
       const oldFileData = DB.remap(oldFile);
     
-      oldFileData.filename = filename;
-      oldFileData.parentfolder = parentFolder.id;
-
       //  v2.ResourceType.Directory : v2.ResourceType.File
       if ( oldFile.type == 'folder' ) {
-        await DB.createFolder({
+        await DB.updateFolder(oldFileData, {
           parentfolder: parentFolder.id, 
-          filename, 
-          id: oldFileData.id
+          filename 
         }, parentFolder.id);
       } else {
+        // TODO: calculate new channel
         // TODO: move file into destination channel
-        await DB.saveFile(oldFileData, parentFolder.id);
+        await DB.updateFile(oldFileData, {
+          parentfolder: parentFolder.id, 
+          filename
+        }, parentFolder.id);
       }
 
     });
@@ -465,10 +483,9 @@ class FSApi {
       let filename = pathsTo.shift();
 
       if ( oldFile.type == 'folder' ) {
-        await DB.createFolder({
+        await DB.updateFolder(oldFile, {
           filename: filename,
-          parentfolder: parentFolder.id,
-          id: oldFile.id
+          parentfolder: parentFolder.id
         }, parentFolder.id);
       } else {
 
@@ -477,7 +494,11 @@ class FSApi {
 
         if ( data.content && data.content.byteLength ) {
           // file is saved in db
-          await DB.saveFile( { ...data, originalFilename: filename, filename, parentfolder: parentFolder.id });
+          await DB.createFile({
+            ...data,
+            filename,
+            parentfolder: parentFolder.id
+          }, parentFolder.id);
 
         } else {
           // file is located on Telegram, need to be forwarded
@@ -499,7 +520,13 @@ class FSApi {
             newParts.push( { ...part, messageid: msg.message.id } );
           }
 
-          await DB.saveFile( { ...data, channel: destinationChannel.id, filename, parentfolder: parentFolder.id, parts: newParts });
+          await DB.createFile({
+            ...data,
+            channel: destinationChannel.id,
+            filename,
+            parentfolder: parentFolder.id,
+            parts: newParts
+          }, parentFolder.id);
 
         }
 

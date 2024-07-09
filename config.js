@@ -35,20 +35,21 @@ function loadConfig(args) {
     
     logger: args.log || yaml.logger || 'info',
 
-    http: {
+    http: args.http && {
       port: process.env.HTTP_PORT || args.httpPort || (yaml.http && yaml.http.port),
       user: args.httpUser || (yaml.http && yaml.http.user),
       pass: args.httpPass || (yaml.http && yaml.http.pass),
       debug: args.httpDebug || (yaml.http && yaml.http.debug)
     },
-    webdav: {
+    webdav: args.webdav && {
       port: process.env.WEBDAV_PORT || args.webdavPort || (yaml.webdav && yaml.webdav.port),
       user: args.webdavUser || (yaml.webdav && yaml.webdav.user),
       pass: args.webdavPass || (yaml.webdav && yaml.webdav.pass),
       debug: args.webdavDebug || (yaml.webdav && yaml.webdav.debug)
     },
 
-    strm: {
+    strm: args.strm && {
+      clearFolder: String(args.strmClearFolder || (yaml.strm && yaml.strm.clear_folder)) == 'true',
       url: args.strmUrl || (yaml.strm && yaml.strm.url),
       folder: args.strmFolder || (yaml.strm && yaml.strm.folder),
       debug: args.strmDebug || (yaml.strm && yaml.strm.debug)

@@ -1,9 +1,9 @@
-const {Config} = require('../config');
-const DB = require('./databases');
+const {Config} = require('./config');
+const DB = require('./services/databases');
 const FS = require('fs');
 const Path = require('path');
-const Logger = require('../logger');
-const FSApi = require('./fs-api');
+const Logger = require('./logger');
+const FSApi = require('./services/fs-api');
 
 const Log = new Logger('STRM');
 
@@ -25,6 +25,8 @@ async function loopFolder(folderId, folderPath) {
 
   for (const child of children){
 
+    if ( child.state != 'ACTIVE') continue;
+
     if ( child.type == 'folder' ) {
 
       const folderChild = Path.join(folderPath, child.filename)
@@ -40,7 +42,6 @@ async function loopFolder(folderId, folderPath) {
 
 }
 
-
 function createFile(file, folderPath) {
   if ( file.content && file.content.byteLength > 0 ) {
 
@@ -53,7 +54,6 @@ function createFile(file, folderPath) {
   }
 }
 
-
 async function deleteItem(item) {
   const parent = await DB.getItem(item.parentfolder);
   const fullpath = await FSApi.buildPath(parent, Path.sep);
@@ -65,8 +65,8 @@ async function deleteItem(item) {
       maxRetries: 2
     })
   } else {
-    let {filename} = item;
-    fullpathFile = Path.join(RootFolderPath, fullpath, filename );
+    // let {filename} = item;
+    // fullpathFile = Path.join(RootFolderPath, fullpath, filename );
     try {
       if ( item.content && item.content.byteLength > 0 ) {
         FS.unlinkSync( fullpathFile );  
@@ -80,15 +80,26 @@ async function deleteItem(item) {
   }
 }
 
-
-async function init(rootFolder) {
+async function init(ID, rootFolder) {
   RootFolderPath = rootFolder;
-  
-  const root = await DB.getItem( DB.ROOT_ID );
+  Log.info('starting in', RootFolderPath);
 
-  await loopFolder(DB.ROOT_ID, RootFolderPath);
+  if ( Config.strm.clearFolder ) {
+    Log.warn('folder will be removed and re-created');
+    FS.rmSync(RootFolderPath, {
+      force: true,
+      recursive: true,
+      maxRetries: 2
+    });
+    FS.mkdirSync( RootFolderPath, {recursive: true} );
+  }
+  
+  Log.warn('populate folder...');
+  await loopFolder(ID, RootFolderPath);
+  Log.warn('folder ready!');
 
   DB.Event.on('created', async (item) => {
+    if ( item.state !== 'ACTIVE' ) return;
     if ( item.type == 'folder' ) {
       // create folder in FS
       const fullpath = await FSApi.buildPath(item, Path.sep);
@@ -103,15 +114,22 @@ async function init(rootFolder) {
 
   DB.Event.on('deleted', deleteItem);
 
-  DB.Event.on('moved', async (itemNew, itemOld) => {
+  DB.Event.on('changed', async (itemNew, itemOld) => {
     const fullpathNew = await FSApi.buildPath(itemNew, Path.sep);
 
     if ( itemOld ) {
       // TODO: check delete folder parameter
       await deleteItem(itemOld);
     }
+    if (itemNew.type == 'folder') {
+      await loopFolder(itemNew.id, Path.join( RootFolderPath, fullpathNew ) );
+    } else {
 
-    await loopFolder(itemNew.id, Path.join( RootFolderPath, fullpathNew ) );
+      let filePath = await FSApi.buildPath(itemNew, Path.sep);
+      let parentPath = Path.dirname(filePath);
+
+      await createFile(itemNew, Path.join( RootFolderPath, parentPath ));
+    }
   });
 
 }

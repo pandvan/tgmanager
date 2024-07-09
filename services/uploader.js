@@ -33,10 +33,12 @@ class Uploader extends EventEmitter {
   }
 
   stop() {
+    Log.warn('uploader has been stopped');
     this.aborted = true;
     this.sourceStream.removeAllListeners('data');
     this.sourceStream.removeAllListeners('end');
     this.sourceStream.destroy(new Error('aborted'));
+    this.emit('stopped');
   }
 
   async prepare() {

@@ -4,6 +4,7 @@ const {Config} = require('../config');
 const Logger = require('../logger');
 const ShortUniqueID = require('short-unique-id');
 const Events = require('events');
+const Process = require('process');
 
 const ShortUUID = new ShortUniqueID({length: 10});
 
@@ -15,8 +16,6 @@ const ROOT_ID = '0000000000';
 const ROOT_NAME = 'root';
 const ENTRY_NAME = 'entries';
 const TELEGRAM_DATA_NAME = 'telegramdata';
-
-const Emitter = new Events.EventEmitter();
 
 class Entry extends Realm.Object {
   static Name = ENTRY_NAME;
@@ -33,9 +32,9 @@ class Entry extends Realm.Object {
       info: 'string{}',
       content: 'data?',
       state: {type: 'string', default: () => 'ACTIVE'},
-      ctime: 'int?',
-      mtime: 'int?',
-      atime: 'int?'
+      ctime: {type: 'int', default: Date.now},
+      mtime: {type: 'int', default: Date.now},
+      atime: {type: 'int', default: Date.now}
     },
     primaryKey: 'id'
   };
@@ -107,9 +106,9 @@ function onChangeListener(entries, changes) {
     const entry = entries[index];
     writeSync( () => {
       // Log.log('saved', entry.filename, 'in', entry.parentfolder);
-      if ( !entry.ctime ) entry.ctime = Date.now();
-      if ( !entry.mtime ) entry.mtime = Date.now();
-      if ( !entry.atime ) entry.atime = Date.now();
+      // if ( !entry.ctime ) entry.ctime = Date.now();
+      // if ( !entry.mtime ) entry.mtime = Date.now();
+      // if ( !entry.atime ) entry.atime = Date.now();
       const parentId = entry.parentfolder;
       if ( parentId ) {
         const parent = DB.objectForPrimaryKey(Entry.Name, parentId);
@@ -151,7 +150,7 @@ async function removeItem(itemId) {
 
     const ret = DB.delete( item );
 
-    Event.emit('deleted', itemData);
+    Process.nextTick( () => Event.emit('deleted', itemData) );
 
     return ret;
   });
@@ -190,53 +189,120 @@ async function checkExist(filename, parent, type, id) {
 async function createFolder(folder, parent) {
 
   // check existing
-  if ( await checkExist(folder.filename, parent || folder.parentfolder, 'folder', folder.id) ) {
+  if ( await checkExist(folder.filename, parent || folder.parentfolder, 'folder') ) {
     throw `Folder '${folder.filename}' already exists in '${parent}'`;
   }
 
   return await write( () => {
-    
-    let oldFold = remap(folder);
-
+    // force create a new folder
+    // delete folder.id
     folder.type = 'folder',
     folder.filename = folder.filename.replace(/\//gi, '-');
     folder.parentfolder = parent || folder.parentfolder;
-    folder.originalFilename = folder.originalFilename || folder.filename;
-    let newFold = DB.create( Entry.Name, folder, !!folder.id ? 'modified' : undefined);
+    folder.state = folder.state || 'ACTIVE';
+    folder.parts = [];
+    folder.content = null;
+
+    let newFold = DB.create( Entry.Name, folder );
 
     newFold = remap(newFold);
 
-    Event.emit(oldFold.id ? 'changed' : 'created', newFold, oldFold);
+    Process.nextTick(() => Event.emit('created', newFold));
 
     return newFold;
   })
 }
 
-async function saveFile(file, parent) {
+async function updateFolder(folder, data, parent) {
+  // check existing
+  if ( await checkExist(data.filename, parent || data.parentfolder, 'folder', data.id || folder.id) ) {
+    throw `Folder '${data.filename}' already exists in '${parent}'`;
+  }
 
+  if ( !folder.id ) {
+    throw `Cannot update folder without id`;
+  }
+
+  return await write( () => {
+
+    const oldFold = remap(folder);
+
+    // force create a new folder
+    folder.type = 'folder',
+    folder.filename = data.filename.replace(/\//gi, '-');
+    folder.parentfolder = parent || data.parentfolder;
+    folder.state = 'ACTIVE';
+    folder.channel = 'channel' in data ? data.channel : folder.channel;
+    let newFold = DB.create( Entry.Name, folder, 'modified' );
+
+    newFold = remap(newFold);
+
+    Process.nextTick(() => Event.emit('changed', newFold, oldFold));
+
+    return newFold;
+  })
+
+}
+
+async function createFile(file, parent) {
+
+  // check existing
+  if ( await checkExist(file.filename, parent || file.parentfolder, file.type) ) {
+    throw `File '${file.filename}' already exists in '${parent}'`;
+  }
+
+  if ( (!file.content || file.content.byteLength <= 0) && !file.channel) {
+    throw `File ${file.filename} has no channel`;
+  }
+
+  return await write( () => {
+
+    file.filename = file.filename.replace(/\//gi, '-');
+    file.parentfolder = parent || file.parentfolder;
+    file.type = file.type || 'application/octet-stream';
+    file.state = file.state || 'ACTIVE';
+    
+    let newFile = DB.create( Entry.Name, file);
+
+    Process.nextTick(() => Event.emit('created', remap(newFile) ));
+
+    return newFile;
+
+  });
+}
+
+async function updateFile(file, data, parent) {
   // check existing
   if ( await checkExist(file.filename, parent || file.parentfolder, file.type, file.id) ) {
     throw `File '${file.filename}' already exists in '${parent}'`;
   }
 
-  const oldFile = remap(file);
+  if ( !file.id ) {
+    throw `Cannot update file without id`;
+  }
 
-  return await write( () => {
+  return await write(() => {
 
     const oldFile = remap(file);
 
-    file.filename = file.filename.replace(/\//gi, '-');
-    file.parentfolder = parent || file.parentfolder;
-    file.originalFilename = file.originalFilename || file.filename;
-    let newFile = DB.create( Entry.Name, file, !!file.id ? 'modified' : undefined);
+    // force create a new folder
+    file.type = data.type || file.type,
+    file.filename = (data.filename || file.filename).replace(/\//gi, '-');
+    file.parentfolder = parent || data.parentfolder || file.parentfolder;
+    file.state = 'ACTIVE';
+    file.channel = 'channel' in data ? data.channel : file.channel;
+    file.parts = data.parts || file.parts;
+    file.content = data.content;
+
+    let newFile = DB.create( Entry.Name, file, 'modified' );
 
     newFile = remap(newFile);
 
-    Event.emit(oldFile.id ? 'changed' : 'created', newFile, oldFile);
+    Process.nextTick(() => Event.emit('changed', newFile, oldFile));
 
     return newFile;
-
   });
+
 }
 
 
@@ -307,21 +373,13 @@ async function setTelegramData(data) {
 }
 
 async function close() {
+  DB.objects(Entry.Name).removeListener(onChangeListener);
   return await DB.close();
 }
 
 
 function isUUID(value) {
   return ShortUUID.validate(value);
-}
-
-
-function on() {
-  Emitter.on.apply(Emitter, arguments);
-}
-
-function emit() {
-  Emitter.emit.apply(Emitter, arguments);
 }
 
 
@@ -333,15 +391,17 @@ module.exports = {
   getChildren,
   write,
   writeSync,
-  saveFile,
   getItemByFilename,
   checkExist,
-  createFolder,
   getTelegramData,
   setTelegramData,
   removeItem,
   close,
   remap,
   isUUID,
-  Event
+  Event,
+  createFolder,
+  updateFolder,
+  createFile,
+  updateFile
 };

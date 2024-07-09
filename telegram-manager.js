@@ -4,7 +4,7 @@ const DB = require('./services/databases');
 const Logger = require('./logger');
 const Path = require('path');
 
-const STRM = require('./services/strm');
+const STRM = require('./strm');
 
 const Log = new Logger('APP');
 
@@ -12,7 +12,7 @@ const Log = new Logger('APP');
 Logger.log(`----- STARTING UP [${process.pid}]------`);
 
 // Initializing app
-const Args = require('./initialize');
+require('./initialize');
 
 async function start() {
 
@@ -23,14 +23,14 @@ async function start() {
     await TelegramClients.addClient( user );
   }
 
-  if ( Args.http ) {
+  if ( Config.http ) {
     require('./server');
   }
-  if ( Args.webdav ) {
+  if ( Config.webdav ) {
     require('./webdav');
   }
-  if ( Args.strm ) {
-    STRM.init( Path.resolve(Args.strm) );
+  if ( Config.strm ) {
+    STRM.init( DB.ROOT_ID, Path.resolve(Config.strm.folder) );
   }
 
 }

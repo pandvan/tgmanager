@@ -330,7 +330,7 @@ Fastify.delete('/folder/:fldId', async function (request, reply) {
 
 
 Fastify.listen({ port: Config.http.port }, async (err, address) => {
-  Log.info('application is listening:', address, 'on port', Config.httpPort);
+  Log.info('application is listening:', address, 'on port', Config.http.port);
   
   const rootFolder = await DB.getItem( DB.ROOT_ID );
   FSApi = new FSApiLib( rootFolder );
