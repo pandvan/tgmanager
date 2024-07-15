@@ -37,7 +37,7 @@ class Uploader extends EventEmitter {
     this.aborted = true;
     this.sourceStream.removeAllListeners('data');
     this.sourceStream.removeAllListeners('end');
-    this.sourceStream.destroy(new Error('aborted'));
+    this.sourceStream.destroy(new Error('stopped'));
     this.emit('stopped');
   }
 

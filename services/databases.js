@@ -49,7 +49,8 @@ class Part extends Realm.Object {
       originalfilename: 'string?',
       hash: 'string?',
       fileid: 'string',
-      size: 'double'
+      size: 'double',
+      index: 'int'
     },
   };
 }
@@ -230,7 +231,7 @@ async function updateFolder(folder, data, parent) {
     // force create a new folder
     folder.type = 'folder',
     folder.filename = data.filename.replace(/\//gi, '-');
-    folder.parentfolder = parent || data.parentfolder;
+    folder.parentfolder = parent || data.parentfolder || folder.parentfolder;
     folder.state = 'ACTIVE';
     folder.channel = 'channel' in data ? data.channel : folder.channel;
     let newFold = DB.create( Entry.Name, folder, 'modified' );
@@ -285,16 +286,19 @@ async function updateFile(file, data, parent) {
 
     const oldFile = remap(file);
 
-    // force create a new folder
-    file.type = data.type || file.type,
-    file.filename = (data.filename || file.filename).replace(/\//gi, '-');
-    file.parentfolder = parent || data.parentfolder || file.parentfolder;
-    file.state = 'ACTIVE';
-    file.channel = 'channel' in data ? data.channel : file.channel;
-    file.parts = data.parts || file.parts;
-    file.content = data.content;
+    const insert = {
+      ...file,
+      type: data.type || file.type,
+      filename: (data.filename || file.filename).replace(/\//gi, '-'),
+      parentfolder: parent || data.parentfolder || file.parentfolder,
+      state: data.state || file.state || 'ACTIVE',
+      channel: 'channel' in data ? data.channel : file.channel,
+      parts: data.parts || file.parts,
+      content: data.content
+    };
 
-    let newFile = DB.create( Entry.Name, file, 'modified' );
+
+    let newFile = DB.create( Entry.Name, insert, 'modified' );
 
     newFile = remap(newFile);
 

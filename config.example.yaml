@@ -18,6 +18,7 @@ db: database.realm        # database file name
 logger: no | error | warn | info | debug  # set log level
 
 http:
+  host: 0.0.0.0           # http server host binding
   port: 3000              # http server configuration
   user: user              # user authentication for Basic Auth
   pass: password          # pass authentication for Basic Auth

@@ -36,6 +36,9 @@ const Args = Yargs( hideBin(process.argv) )
     type: 'boolean',
     default: false
   })
+    .option('http-host', {
+      describe: 'http server host'
+    })
     .option('http-port', {
       describe: 'http server port'
     })

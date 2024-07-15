@@ -37,6 +37,7 @@ function loadConfig(args) {
     logger: args.log || yaml.logger || 'info',
 
     http: args.http && {
+      host: process.env.HTTP_HOST || args.httpHost || (yaml.http && yaml.http.host),
       port: process.env.HTTP_PORT || args.httpPort || (yaml.http && yaml.http.port),
       user: args.httpUser || (yaml.http && yaml.http.user),
       pass: args.httpPass || (yaml.http && yaml.http.pass),

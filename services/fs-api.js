@@ -298,13 +298,14 @@ class FSApi {
         } else {
           newFileData.content = null;
           // dbFile.parts = portions.map( (item) => item.msgid );
-          newFileData.parts = portions.map((item) => {
+          newFileData.parts = portions.map((item, i) => {
             return {
               messageid: item.msgid,
               originalfilename: item.filename,
               hash: '',
               fileid: String(item.fileId),
-              size: Number(item.size)
+              size: Number(item.size),
+              index: i
             };
           })
         }
@@ -323,8 +324,8 @@ class FSApi {
 
     Log.info('file', filename, 'is being uploaded, id:', dbFile.id);
     
-    // start upload and attach 'data' and 'finish' handler
-    uploader.execute(stream);
+    // // start upload and attach 'data' and 'finish' handler
+    // await uploader.execute(stream);
 
     return uploader;
   }
@@ -382,13 +383,9 @@ class FSApi {
     TelegramClients.nextClient();
     const client = TelegramClients.Client;
 
-
     Log.info('serve file', filename, `, bytes: ${start}-${end}`, 'total:', totalsize);
 
-    const reqId = String(Date.now());
-    const service = new Downloader(reqId, dbData, start, end);
-
-    service.execute(client, stream);
+    const service = new Downloader(client, dbData, start, end);
 
     return service;
 

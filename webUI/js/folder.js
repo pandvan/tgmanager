@@ -9,7 +9,7 @@ function Item(props) {
   const {item, depth} = props;
   const [showFolder, setShowFolder] = useState(false);
   const size = useMemo(() => {
-    return item.sizes.reduce((acc, value) => acc += value, 0);
+    return item.parts.reduce((acc, part) => acc += part.size, 0);
   }, [item]);
 
   const onClick = useCallback(() => {

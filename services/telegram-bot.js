@@ -16,24 +16,24 @@ async function start() {
 
   Bot = new Telegraf(Config.telegram.bot_token);
 
-  async function processMessage(ctx) {
+  async function processMessage(ctx, keyMessage) {
     // Using context shortcut
-    const {channelPost} = ctx;
-    Log.debug('got channel_post', JSON.stringify(channelPost));
+    const message = ctx['keyMessage'];
+    Log.debug('got', keyMessage, JSON.stringify(channelPost));
 
-    if ( channelPost.document && channelPost.document.file_name ) {
-      const {document} = channelPost;
+    if ( message.document && message.document.file_name ) {
+      const {document} = message;
       const {file_name} = document;
       // got a new file
       Log.info('got new file:', file_name);
 
-      let dbFile = await DB.byQuery('type != $0 && parts.@count > 0 && parts.messageid == $1 && state != $2', ['folder', channelPost.message_id, 'TEMP']);
+      let dbFile = await DB.byQuery('type != $0 && parts.@count > 0 && parts.messageid == $1 && state != $2', ['folder', message.message_id, 'TEMP']);
 
       if ( dbFile && dbFile.length > 0 ) {
         Log.info('file', file_name, 'already saved in DB');
       } else {
 
-        let channelId = String(channelPost.chat.id);
+        let channelId = String(message.chat.id);
         if ( channelId.length > 10 ) {
           channelId = String(Math.abs(channelId)).substring(3);
         }
@@ -52,7 +52,7 @@ async function start() {
         const client = TelegramClients.Client;
 
         const channel = await client.getChannel(channelId);
-        const message = await client.getMessage({id: channel.id, hash: channel.access_hash}, channelPost.message_id);
+        const message = await client.getMessage({id: channel.id, hash: channel.access_hash}, message.message_id);
 
         dbFile = await DB.createFile({
           filename: file_name,
@@ -76,11 +76,13 @@ async function start() {
 
 
   Bot.on( 'channel_post', (ctx) => {
-    setTimeout( () => processMessage(ctx), 2000 );
+    setTimeout( () => processMessage(ctx, 'channel_post'), 2000 );
   });
 
 
-  await Bot.launch();
+  Bot.launch().catch((e) => {
+    Log.error('cannot start bot', e);
+  });
   Log.info('started');
 }
 

@@ -112,6 +112,16 @@ Fastify.get('/files/:fileid', async function (request, reply) {
 
   const service = await FSApi.readFileContent(path.toString(), {start, end}, stream);
 
+  reply.code( headerRange ? 206 : 200);
+      
+  reply.header('Content-Range', `bytes ${start}-${end}/${totalsize}`);
+  reply.header('content-length', (end - start) + 1);
+  reply.header('content-type', file.type);
+  reply.header("content-disposition", `inline; filename="${file.filename}"`);
+  reply.header("accept-ranges", "bytes");
+
+  reply.send(stream);
+
   if ( service ) {
     // file will be read from telegram
 
@@ -136,18 +146,9 @@ Fastify.get('/files/:fileid', async function (request, reply) {
       } 
     });
 
+    await service.execute(stream);
+
   }
-
-  reply.code( headerRange ? 206 : 200);
-      
-  reply.header('Content-Range', `bytes ${start}-${end}/${totalsize}`);
-  reply.header('content-length', (end - start) + 1);
-  reply.header('content-type', file.type);
-  reply.header("content-disposition", `inline; filename="${file.filename}"`);
-  reply.header("accept-ranges", "bytes");
-
-  reply.send(stream);
-  stream.resume();
 
   await reply;
 });
@@ -198,26 +199,31 @@ Fastify.post('/folder/:fldid/file/:filename?', async function (request, reply) {
       return reply.code(201).send(`file correctly created: ${dbFile.id}`);
     });
 
-    request.raw.on('error', () => {
-      if ( !service.aborted ) {
-        service.stop();
-        Log.warn('request has been aborted because of error');
-      } 
-    });
-  
-    request.raw.on('aborted', () => {
-      if ( !service.aborted ) {
-        service.stop();
-        Log.warn('request has been aborted because of aborted');
-      } 
-    });
-  
-    request.raw.on('close', () => {
-      if ( !service.aborted ) {
-        service.stop();
-        Log.warn('request has been aborted because of close');
-      } 
-    });
+    if ( service ) {
+
+      request.raw.on('error', () => {
+        if ( !service.aborted ) {
+          service.stop();
+          Log.warn('request has been aborted because of error');
+        } 
+      });
+    
+      request.raw.on('aborted', () => {
+        if ( !service.aborted ) {
+          service.stop();
+          Log.warn('request has been aborted because of aborted');
+        } 
+      });
+    
+      request.raw.on('close', () => {
+        if ( !service.aborted ) {
+          service.stop();
+          Log.warn('request has been aborted because of close');
+        } 
+      });
+
+      await service.execute(file.file);
+    }
 
 
   } catch(e) {
@@ -329,7 +335,7 @@ Fastify.delete('/folder/:fldId', async function (request, reply) {
 });
 
 
-Fastify.listen({ port: Config.http.port }, async (err, address) => {
+Fastify.listen({ port: Config.http.port, host: Config.http.host }, async (err, address) => {
   Log.info('application is listening:', address, 'on port', Config.http.port);
   
   const rootFolder = await DB.getItem( DB.ROOT_ID );

@@ -184,7 +184,7 @@ class TGFileSystem extends v2.VirtualFileSystem {
   }
 
   async _readDir(path, ctx, callback) {
-    Log.info('[listdir]', `'${path.toString()}'`);
+    Log.debug('[listdir]', `'${path.toString()}'`);
     try {
 
       const res = await this.fsApi.listDir(path.toString());
@@ -266,8 +266,10 @@ class TGFileSystem extends v2.VirtualFileSystem {
       }
 
       callback(null, stream);
-      stream.resume();
-      if (!service) {
+
+      if ( service ) {
+        await service.execute(stream);
+      } else {
         stream.end();
       }
 
@@ -336,28 +338,27 @@ class TGFileSystem extends v2.VirtualFileSystem {
 
       if ( service ) {
         // NOTE: this code can be removed
-        // file will be read from telegram
 
-        // ctx.context.request.on('error', () => {
-        //   if ( !service.aborted ) {
-        //     service.stop();
-        //     Log.warn('[writefile]', 'request has been aborted because of error')
-        //   } 
-        // });
+        ctx.context.request.on('error', () => {
+          if ( !service.aborted ) {
+            service.stop();
+            Log.warn('[writefile]', 'request has been aborted because of error')
+          } 
+        });
       
-        // ctx.context.request.on('aborted', () => {
-        //   if ( !service.aborted ) {
-        //     service.stop();
-        //     Log.warn('[writefile]', 'request has been aborted because of aborted')
-        //   } 
-        // });
+        ctx.context.request.on('aborted', () => {
+          if ( !service.aborted ) {
+            service.stop();
+            Log.warn('[writefile]', 'request has been aborted because of aborted')
+          } 
+        });
       
-        // ctx.context.request.on('close', () => {
-        //   if ( !service.aborted ) {
-        //     service.stop();
-        //     Log.warn('[writefile]', 'request has been aborted because of close')
-        //   } 
-        // });
+        ctx.context.request.on('close', () => {
+          if ( !service.aborted ) {
+            service.stop();
+            Log.warn('[writefile]', 'request has been aborted because of close')
+          } 
+        });
       }
 
       /**
@@ -391,6 +392,8 @@ class TGFileSystem extends v2.VirtualFileSystem {
       for (const cb of finishHandlers) {
         stream.on('finish', cb);
       }
+
+      await service.execute(stream);
 
 
     } catch(e) {

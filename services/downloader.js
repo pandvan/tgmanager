@@ -52,6 +52,8 @@ class Downloader {
   /* range of bytes to be downloaded */
   range = null;
 
+  client = null;
+
   /**
    * constructor
    * @param {string} id: the unique identifier of task
@@ -59,13 +61,13 @@ class Downloader {
    * @param {number} start: the start range
    * @param {number} end: the end range
    */
-  constructor(id, data, start, end) {
+  constructor(client, data, start, end) {
     this.data = data;
     this.range = {
       start, end
     };
     this.totalsize = this.data.reduce((acc, curr) => acc + curr.size, 0);
-    this.id = id;
+    this.client = client;
   }
 
 
@@ -80,16 +82,14 @@ class Downloader {
    * Stop downloading
    */
   stop() {
-    Log.warn(`[${this.id}]`, 'aborted');
+    Log.warn('aborted');
     this.aborted = true;
   }
 
   /**
-   * 
-   * @param {TelegramClient} client: the TelegramClient class instance
    * @param {Stream} destination: the destination stream
    */
-  async execute(client, destination) {
+  async execute(destination) {
 
     const files = [];
 
@@ -129,25 +129,25 @@ class Downloader {
       currentIndex++;
     }
 
-
+    destination.resume();
 
     for await (const item of files) {
 
       const {start, end, file} = item;
       const {ch, msg} = file;
       
-      Log.debug(`[${this.id}]`, 'getting channel', ch);
-      const channel = await client.getChannel( ch );
+      Log.debug('getting channel', ch);
+      const channel = await this.client.getChannel( ch );
       const hash = channel.access_hash;
   
-      Log.debug(`[${this.id}]`, 'getting message', msg);
-      const message = await client.getMessage({id: channel.id, hash}, msg);
+      Log.debug('getting message', msg);
+      const message = await this.client.getMessage({id: channel.id, hash}, msg);
       const {media} = message;
       const {document} = media;
       const {id, access_hash, file_reference} = document;
   
-      Log.debug(`[${this.id}]`, 'ready for download');
-      await this.performStream(client, {id, access_hash, file_reference}, start, end, destination);
+      Log.debug('ready for download');
+      await this.performStream({id, access_hash, file_reference}, start, end, destination);
 
       if ( this.aborted ) {
         break;
@@ -162,13 +162,12 @@ class Downloader {
 
   /**
    * 
-   * @param {TelegramClient} client: the TelegramClient class instance 
    * @param {string} id: the telegram file_id
    * @param {number} start: the start range
    * @param {number} end: the end range 
    * @param {Stream} stream: destination stream
    */
-  async performStream(client, {id, access_hash, file_reference}, start, end, stream) {
+  async performStream({id, access_hash, file_reference}, start, end, stream) {
 
     // telegram chunk (1MB)
     const CHUNK = 1 * 1024 * 1024;
@@ -179,11 +178,11 @@ class Downloader {
   
     let needStop = false;
 
-    Log.debug(`[${this.id}]`, 'stream from', start, end);
+    Log.debug('stream from', start, end);
   
     while(true) {
       // Log.debug(`[${this.id}]`, 'get file from telegram', offset);
-      const tgFile = await client.getFile({id, access_hash, file_reference}, offset, CHUNK);
+      const tgFile = await this.client.getFile({id, access_hash, file_reference}, offset, CHUNK);
   
       let firstByte = 0;
       let lastByte = CHUNK;
