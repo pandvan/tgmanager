@@ -91,7 +91,6 @@ Fastify.get('/files/:fileid', async function (request, reply) {
   }
 
   const stream = new Stream.PassThrough({highWaterMark: UPLOAD_CHUNK * 2});
-  stream.pause();
 
   // parse Range header 
   const headerRange = request.headers['range'];
@@ -146,6 +145,12 @@ Fastify.get('/files/:fileid', async function (request, reply) {
       } 
     });
 
+    let totalBytes = 0;
+    stream.on('data', (chunk) => totalBytes += chunk.length);
+    stream.on('end', () => {
+      Log.info('total bytes sent', totalBytes);
+    });
+    
     await service.execute(stream);
 
   }
