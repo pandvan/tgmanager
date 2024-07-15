@@ -19,7 +19,7 @@ async function start() {
   async function processMessage(ctx, keyMessage) {
     // Using context shortcut
     const message = ctx['keyMessage'];
-    Log.debug('got', keyMessage, JSON.stringify(channelPost));
+    Log.debug('got', keyMessage, JSON.stringify(message));
 
     if ( message.document && message.document.file_name ) {
       const {document} = message;
