@@ -1,7 +1,7 @@
 const {parseRange} = require('./utils');
 const Stream = require('stream');
 const Logger = require('./logger');
-const {Config} = require('./config');
+const {Config, UPLOAD_CHUNK} = require('./config');
 const Multipart = require('@fastify/multipart');
 const Pug = require('pug');
 const Path = require('path');
@@ -90,7 +90,7 @@ Fastify.get('/files/:fileid', async function (request, reply) {
     return reply.send({error: `file not found with id ${request.params.fileid}`});
   }
 
-  const stream = new Stream.PassThrough();
+  const stream = new Stream.PassThrough({highWaterMark: UPLOAD_CHUNK * 2});
   stream.pause();
 
   // parse Range header 
