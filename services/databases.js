@@ -79,7 +79,7 @@ async function initDatabase() {
   DB = await Realm.open({
     path: DB_PATH,
     schema: [Entry, Part, TelegramData],
-    schemaVersion: 2
+    schemaVersion: 3
   });
 
   const entryTable = DB.objects(Entry.Name);
