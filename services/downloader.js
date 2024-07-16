@@ -185,7 +185,9 @@ class Downloader {
   
     while(true) {
       // Log.debug(`[${this.id}]`, 'get file from telegram', offset);
+      let startTS = Date.now();
       const tgFile = await this.client.getFile({id, access_hash, file_reference, dc}, offset, CHUNK);
+      Log.debug('got file bytes in', Date.now() - startTS, 'ms');
   
       let firstByte = 0;
       let lastByte = CHUNK;
@@ -201,8 +203,8 @@ class Downloader {
       }
   
       const buf = Uint8Array.prototype.slice.call(tgFile.bytes, firstByte, lastByte);
-      Log.debug('write', buf.length);
-      stream.write( buf );
+      const resp = stream.write( buf );
+      Log.debug('wrote', resp, buf.length, 'bytes in', Date.now() - startTS);
   
       offset += CHUNK;
   
