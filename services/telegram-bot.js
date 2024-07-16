@@ -81,10 +81,13 @@ async function start() {
   });
 
 
-  Bot.launch().catch((e) => {
+  Bot.launch({
+    dropPendingUpdates: true
+  }, () => {
+    Log.info('started');
+  }).catch((e) => {
     Log.error('cannot start bot', e);
   });
-  Log.info('started');
 }
 
 function close() {
