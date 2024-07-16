@@ -62,7 +62,8 @@ async function start() {
             originalfilename: file_name,
             hash: '',
             fileid: message.media.document.id,
-            size: document.file_size
+            size: document.file_size,
+            index: 0
           }],
           parentfolder: parentFolder,
           type: document.mime_type || Mime.lookup(file_name) || 'application/octet-stream',
