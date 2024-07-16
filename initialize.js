@@ -28,7 +28,6 @@ const Args = Yargs( hideBin(process.argv) )
   .option('log', {
     describe: 'set log level',
     choices: ['no', 'error', 'warn', 'info', 'debug'],
-    default: 'info'
   })
 
   .option('http', {

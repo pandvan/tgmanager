@@ -119,7 +119,7 @@ class TelegramApi {
   }
 
 
-  async getFile({id, access_hash, file_reference}, offset, limit) {
+  async getFile({id, access_hash, file_reference, dc}, offset, limit) {
     return await this.apiCall('upload.getFile', {
       location: {
         _: 'inputDocumentFileLocation',
@@ -130,7 +130,7 @@ class TelegramApi {
       offset,
       limit,
       precise: false
-    });
+    }, {dcId: dc});
   }
 
   async sendFileParts(fileId, part, parts, chunk) {

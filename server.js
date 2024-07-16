@@ -76,7 +76,7 @@ Fastify.get('/folder/:fldId', async (request, reply) => {
 
 Fastify.get('/files/:fileid', async function (request, reply) {
   // GET data from DB
-  Log.info(`[${request.id}]`, 'new request for', request.params.dbid, 'with range:', request.headers.range);
+  Log.info(`[${request.id}]`, 'new request for', request.params.fileid, 'with range:', request.headers.range);
 
   if ( !request.params.fileid ) {
     reply.code(422);
@@ -90,7 +90,10 @@ Fastify.get('/files/:fileid', async function (request, reply) {
     return reply.send({error: `file not found with id ${request.params.fileid}`});
   }
 
-  const stream = new Stream.PassThrough({highWaterMark: UPLOAD_CHUNK * 2});
+  const stream = new Stream.PassThrough({
+    readableHighWaterMark: UPLOAD_CHUNK * 4,
+    writableHighWaterMark: UPLOAD_CHUNK * 4
+  });
 
   // parse Range header 
   const headerRange = request.headers['range'];
@@ -127,32 +130,32 @@ Fastify.get('/files/:fileid', async function (request, reply) {
     request.raw.on('error', () => {
       if ( !service.aborted ) {
         service.stop();
-        Log.warn('request has been aborted because of error')
+        Log.warn(`[${request.id}]`, 'request has been aborted because of error')
       } 
     });
   
     request.raw.on('aborted', () => {
       if ( !service.aborted ) {
         service.stop();
-        Log.warn('request has been aborted because of aborted')
+        Log.warn(`[${request.id}]`, 'request has been aborted because of aborted')
       } 
     });
   
     request.raw.on('close', () => {
       if ( !service.aborted ) {
         service.stop();
-        Log.warn('request has been aborted because of close')
+        Log.warn(`[${request.id}]`, 'request has been aborted because of close')
       } 
     });
 
     let totalBytes = 0;
     stream.on('data', (chunk) => totalBytes += chunk.length);
     stream.on('close', () => {
-      Log.info('closing stream: total bytes sent', totalBytes);
+      Log.info(`[${request.id}]`, 'closing stream: total bytes sent', totalBytes);
     });
-    stream.on('finish', () => {
-      Log.info('finishing stream: total bytes sent', totalBytes);
-    });
+    // stream.on('finish', () => {
+    //   Log.info(`[${request.id}]`, 'finishing stream: total bytes sent', totalBytes);
+    // });
 
     await service.execute(stream);
 
@@ -342,6 +345,11 @@ Fastify.delete('/folder/:fldId', async function (request, reply) {
   }
 });
 
+
+Fastify.setErrorHandler((error, request, reply) => {
+  Log.error(error);
+  reply.status(500).send(error)
+})
 
 Fastify.listen({ port: Config.http.port, host: Config.http.host }, async (err, address) => {
   Log.info('application is listening:', address, 'on port', Config.http.port);

@@ -57,9 +57,10 @@ class Uploader extends EventEmitter {
 
     this.newPortionFile();
 
-    this.sourceStream = new Stream.PassThrough({highWaterMark: UPLOAD_CHUNK});
-
-    source.setDefaultHighWaterMark(false, UPLOAD_CHUNK * 2);
+    this.sourceStream = new Stream.PassThrough({
+      readableHighWaterMark: UPLOAD_CHUNK * 4,
+      writableHighWaterMark: UPLOAD_CHUNK * 4
+    });
 
     source.pause();
 

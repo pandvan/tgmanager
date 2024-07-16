@@ -130,7 +130,6 @@ class Downloader {
       currentIndex++;
     }
 
-    destination.setDefaultHighWaterMark(false, UPLOAD_CHUNK * 2);
     destination.resume();
     let tgChannel = null;
 
@@ -151,7 +150,7 @@ class Downloader {
       const {id, access_hash, file_reference} = document;
   
       Log.debug('ready for download, range:', `${start}-${end}`);
-      await this.performStream({id, access_hash, file_reference}, start, end, destination);
+      await this.performStream({id, access_hash, file_reference, dc: document.dc_id}, start, end, destination);
 
       if ( this.aborted ) {
         break;
@@ -171,7 +170,7 @@ class Downloader {
    * @param {number} end: the end range 
    * @param {Stream} stream: destination stream
    */
-  async performStream({id, access_hash, file_reference}, start, end, stream) {
+  async performStream({id, access_hash, file_reference, dc}, start, end, stream) {
 
     // telegram chunk (1MB)
     const CHUNK = 1 * 1024 * 1024;
@@ -186,7 +185,7 @@ class Downloader {
   
     while(true) {
       // Log.debug(`[${this.id}]`, 'get file from telegram', offset);
-      const tgFile = await this.client.getFile({id, access_hash, file_reference}, offset, CHUNK);
+      const tgFile = await this.client.getFile({id, access_hash, file_reference, dc}, offset, CHUNK);
   
       let firstByte = 0;
       let lastByte = CHUNK;
@@ -202,7 +201,7 @@ class Downloader {
       }
   
       const buf = Uint8Array.prototype.slice.call(tgFile.bytes, firstByte, lastByte);
-      // Log.debug(`[${this.id}]`, 'write', buf.length);
+      Log.debug('write', buf.length);
       stream.write( buf );
   
       offset += CHUNK;
