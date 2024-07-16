@@ -130,8 +130,11 @@ class Downloader {
       currentIndex++;
     }
 
-    destination.resume();
     let tgChannel = null;
+
+    destination.on('drain', () => {
+      Log.debug('drained');
+    });
 
     for await (const item of files) {
 
@@ -182,7 +185,7 @@ class Downloader {
     let needStop = false;
 
     Log.debug('stream from', start, end);
-  
+
     while(true) {
       // Log.debug(`[${this.id}]`, 'get file from telegram', offset);
       let startTS = Date.now();
@@ -205,12 +208,13 @@ class Downloader {
       const buf = Uint8Array.prototype.slice.call(tgFile.bytes, firstByte, lastByte);
       const resp = stream.write( buf );
       Log.debug('wrote', resp, buf.length, 'bytes in', Date.now() - startTS);
-  
+
       offset += CHUNK;
   
       if ( needStop || this.aborted ) { 
-        break
+        break;
       }
+      
     }
   
   }

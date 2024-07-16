@@ -90,10 +90,7 @@ Fastify.get('/files/:fileid', async function (request, reply) {
     return reply.send({error: `file not found with id ${request.params.fileid}`});
   }
 
-  const stream = new Stream.PassThrough({
-    readableHighWaterMark: UPLOAD_CHUNK * 4,
-    writableHighWaterMark: UPLOAD_CHUNK * 4
-  });
+  const stream = reply.raw; //new Stream.PassThrough();
 
   // parse Range header 
   const headerRange = request.headers['range'];
@@ -122,7 +119,7 @@ Fastify.get('/files/:fileid', async function (request, reply) {
   reply.header("content-disposition", `inline; filename="${file.filename}"`);
   reply.header("accept-ranges", "bytes");
 
-  reply.send(stream);
+  // reply.send(stream);
 
   if ( service ) {
     // file will be read from telegram
