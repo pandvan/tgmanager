@@ -147,10 +147,13 @@ Fastify.get('/files/:fileid', async function (request, reply) {
 
     let totalBytes = 0;
     stream.on('data', (chunk) => totalBytes += chunk.length);
-    stream.on('end', () => {
-      Log.info('total bytes sent', totalBytes);
+    stream.on('close', () => {
+      Log.info('closing stream: total bytes sent', totalBytes);
     });
-    
+    stream.on('finish', () => {
+      Log.info('finishing stream: total bytes sent', totalBytes);
+    });
+
     await service.execute(stream);
 
   }

@@ -59,6 +59,8 @@ class Uploader extends EventEmitter {
 
     this.sourceStream = new Stream.PassThrough({highWaterMark: UPLOAD_CHUNK});
 
+    source.setDefaultHighWaterMark(false, UPLOAD_CHUNK * 2);
+
     source.pause();
 
     this.sourceStream.on('data', async (chunk) => {

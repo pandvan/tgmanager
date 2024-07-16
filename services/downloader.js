@@ -37,6 +37,7 @@
  * 
  */
 
+const { UPLOAD_CHUNK } = require('../config');
 const Logger = require('../logger');
 
 const Log = new Logger('Downloader');
@@ -129,24 +130,27 @@ class Downloader {
       currentIndex++;
     }
 
+    destination.setDefaultHighWaterMark(false, UPLOAD_CHUNK * 2);
     destination.resume();
+    let tgChannel = null;
 
     for await (const item of files) {
 
       const {start, end, file} = item;
       const {ch, msg} = file;
       
-      Log.debug('getting channel', ch);
-      const channel = await this.client.getChannel( ch );
-      const hash = channel.access_hash;
+      if ( !tgChannel || tgChannel.id !== ch) {
+        Log.debug('getting channel', ch);
+        tgChannel = await this.client.getChannel( ch );
+      }
   
       Log.debug('getting message', msg);
-      const message = await this.client.getMessage({id: channel.id, hash}, msg);
+      const message = await this.client.getMessage({id: tgChannel.id, hash: tgChannel.access_hash}, msg);
       const {media} = message;
       const {document} = media;
       const {id, access_hash, file_reference} = document;
   
-      Log.debug('ready for download');
+      Log.debug('ready for download, range:', `${start}-${end}`);
       await this.performStream({id, access_hash, file_reference}, start, end, destination);
 
       if ( this.aborted ) {
@@ -199,7 +203,7 @@ class Downloader {
   
       const buf = Uint8Array.prototype.slice.call(tgFile.bytes, firstByte, lastByte);
       // Log.debug(`[${this.id}]`, 'write', buf.length);
-      stream.write(  buf );
+      stream.write( buf );
   
       offset += CHUNK;
   
