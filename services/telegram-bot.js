@@ -28,16 +28,16 @@ async function start() {
       // got a new file
       Log.info('got new file:', file_name);
 
-      let dbFile = await DB.byQuery('type != $0 && parts.@count > 0 && parts.messageid == $1 && state != $2', ['folder', input_message.message_id, 'TEMP']);
+      let channelId = String(input_message.chat.id);
+      if ( channelId.length > 10 ) {
+        channelId = String(Math.abs(channelId)).substring(3);
+      }
+
+      let dbFile = await DB.byQuery('type != $0 && parts.@count > 0 && parts.messageid == $1 && channel == $2 && state != $3', ['folder', input_message.message_id, channelId, 'TEMP']);
 
       if ( dbFile && dbFile.length > 0 ) {
         Log.info('file', file_name, 'already saved in DB');
       } else {
-
-        let channelId = String(input_message.chat.id);
-        if ( channelId.length > 10 ) {
-          channelId = String(Math.abs(channelId)).substring(3);
-        }
 
         let folders = await DB.byQuery('type == $0 && channel == $1', ['folder', channelId]);
         let parentFolder = folders[0];
