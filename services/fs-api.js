@@ -5,6 +5,7 @@ const Uploader = require('./uploader');
 const Downloader = require('./downloader');
 const Logger = require('../logger');
 const Mime = require('mime-types');
+const {ROOT_ID} = require('../constants');
 
 const Log = new Logger('FSApi');
 
@@ -21,11 +22,11 @@ class FSApi {
 
 
   static async buildPath(item, sep = '/') {
-    const paths = item.id == DB.ROOT_ID ? [] : [ item.filename ];
+    const paths = item.id == ROOT_ID ? [] : [ item.filename ];
     let p = item;
     while ( p.parentfolder ) {
       p = await DB.getItem(p.parentfolder);
-      if ( !p || p.id == DB.ROOT_ID ) break;
+      if ( !p || p.id == ROOT_ID ) break;
       paths.unshift( p.filename );
     }
     return paths.join(sep);
@@ -100,7 +101,7 @@ class FSApi {
       while ( !channelid ) {
         const pf = await DB.getItem(p);
         channelid = pf.channel;
-        if (pf.id === DB.ROOT_ID) break;
+        if (pf.id === ROOT_ID) break;
         p = pf.parentfolder;
       }
 
@@ -234,7 +235,7 @@ class FSApi {
     while ( !channelid ) {
       const pf = await DB.getItem(p);
       channelid = pf.channel;
-      if (pf.id === DB.ROOT_ID) break;
+      if (pf.id === ROOT_ID) break;
       p = pf.parentfolder;
     }
 
@@ -406,7 +407,7 @@ class FSApi {
     await DB.write(async () => {
       // open transaction
       
-      let parentFolder = await DB.getItem(DB.ROOT_ID);
+      let parentFolder = await DB.getItem(ROOT_ID);
       let destChannelid = null;
 
       while(pathsTo.length - 1) {
@@ -499,7 +500,7 @@ class FSApi {
 
     await DB.write(async () => {
 
-      let parentFolder = await DB.getItem(DB.ROOT_ID);
+      let parentFolder = await DB.getItem(ROOT_ID);
       let destChannelid = null;
 
       while(pathsTo.length - 1) {

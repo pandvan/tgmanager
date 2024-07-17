@@ -3,6 +3,7 @@ const {Config} = require('./config');
 const DB = require('./services/databases');
 const Logger = require('./logger');
 const Path = require('path');
+const {ROOT_ID} = require('./constants');
 
 const STRM = require('./strm');
 
@@ -26,13 +27,13 @@ async function start() {
   }
 
   if ( Config.http ) {
-    require('./server');
+    require('./server-fastify');
   }
   if ( Config.webdav ) {
     require('./webdav');
   }
   if ( Config.strm ) {
-    STRM.init( DB.ROOT_ID, Path.resolve(Config.strm.folder) );
+    STRM.init( ROOT_ID, Path.resolve(Config.strm.folder) );
   }
 
   if ( Config.telegram.bot_token ) {

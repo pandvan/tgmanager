@@ -2,13 +2,13 @@ const YAML = require('yaml');
 const FS = require('fs');
 const Path = require('path');
 
+const {UPLOAD_CHUNK} = require('./constants');
+
 const Logger = require('./logger');
 
 const Log = new Logger('Config');
 
 let Config = {};
-
-const UPLOAD_CHUNK = 512 * 1024;
 
 function loadConfig(args) {
   Log.log(`loading config file '${args.config}'`);
@@ -62,6 +62,5 @@ function loadConfig(args) {
 
 module.exports = {
   Config,
-  loadConfig,
-  UPLOAD_CHUNK
+  loadConfig
 };

@@ -5,6 +5,7 @@ const Logger = require('../logger');
 const DB = require('./databases');
 const Mime = require('mime-types');
 const TelegramClients = require('./clients');
+const {ROOT_ID} = require('../constants');
 
 
 const Log = new Logger('Bot');
@@ -33,20 +34,20 @@ async function start() {
         channelId = String(Math.abs(channelId)).substring(3);
       }
 
-      let dbFile = await DB.byQuery('type != $0 && parts.@count > 0 && parts.messageid == $1 && channel == $2 && state != $3', ['folder', input_message.message_id, channelId, 'TEMP']);
+      let dbFile = await DB.getFileByMessageIdAndChannel(input_message.message_id, channelId)
 
       if ( dbFile && dbFile.length > 0 ) {
         Log.info('file', file_name, 'already saved in DB');
       } else {
 
-        let folders = await DB.byQuery('type == $0 && channel == $1', ['folder', channelId]);
+        let folders = await DB.getFolderByChannel(channelId);
         let parentFolder = folders[0];
         if ( parentFolder ) {
           Log.info('file', file_name, `will be stored in '${parentFolder.filename}'`);
           parentFolder = parentFolder.id;
         } else {
           Log.info('file', file_name, 'will be stored in root folder');
-          parentFolder = DB.ROOT_ID;
+          parentFolder = ROOT_ID;
         }
 
         TelegramClients.nextClient();

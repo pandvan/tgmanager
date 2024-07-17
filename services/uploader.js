@@ -1,5 +1,6 @@
 const ShortUniqueID = require('short-unique-id');
-const {Config, UPLOAD_CHUNK} = require('../config');
+const {Config} = require('../config');
+const {UPLOAD_CHUNK} = require('../constants');
 const Mime = require('mime-types');
 const Logger = require('../logger');
 const Stream = require('stream');
@@ -57,10 +58,7 @@ class Uploader extends EventEmitter {
 
     this.newPortionFile();
 
-    this.sourceStream = new Stream.PassThrough({
-      readableHighWaterMark: UPLOAD_CHUNK * 4,
-      writableHighWaterMark: UPLOAD_CHUNK * 4
-    });
+    this.sourceStream = new Stream.PassThrough();
 
     source.pause();
 

@@ -22,6 +22,7 @@
     "fastify": "^4.28.0",
     "input": "^1.0.1",
     "mime-types": "^2.1.35",
+    "mongoose": "^8.5.1",
     "multiparty": "^4.2.3",
     "pug": "2.0.4",
     "realm": "^12.9.0",

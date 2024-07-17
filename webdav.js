@@ -1,6 +1,7 @@
 const Webdav = require('webdav-server').v2;
 const Logger = require('./logger');
-const { getItem, ROOT_ID } = require('./services/databases');
+const DB = require('./services/databases');
+const {ROOT_ID} = require('./constants');
 const TGFileSystem = require('./services/tg-filesystem');
 const FSApi = require('./services/fs-api');
 const {Config} = require('./config');
@@ -57,7 +58,7 @@ if ( String(Config.webdav.debug) == 'true' ) {
 
 
 async function start() {
-  const rootFolder = await getItem(ROOT_ID);
+  const rootFolder = await DB.getItem(ROOT_ID);
   const fsApi = new FSApi(rootFolder);
   WebDavServer.setFileSystemSync('/', new TGFileSystem(fsApi));
   WebDavServer.start(() => Log.info('up and running on port', Config.webdav.port));

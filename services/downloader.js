@@ -37,7 +37,7 @@
  * 
  */
 
-const { UPLOAD_CHUNK } = require('../config');
+const { UPLOAD_CHUNK } = require('../constants');
 const Logger = require('../logger');
 
 const Log = new Logger('Downloader');
