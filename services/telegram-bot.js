@@ -21,7 +21,7 @@ async function start() {
     // Using context shortcut
     const input_message = ctx.update[keyMessage];
     Log.debug('got', keyMessage, JSON.stringify(input_message));
-
+    // TODO: add photo and audio management
     const document = input_message.document || input_message.video;
 
     if ( document && document.file_name ) {
@@ -34,7 +34,7 @@ async function start() {
         channelId = String(Math.abs(channelId)).substring(3);
       }
 
-      let dbFile = await DB.getFileByMessageIdAndChannel(input_message.message_id, channelId)
+      let dbFile = await DB.getFilesByMessageIdAndChannel(input_message.message_id, channelId)
 
       if ( dbFile && dbFile.length > 0 ) {
         Log.info('file', file_name, 'already saved in DB');

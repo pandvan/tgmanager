@@ -38,7 +38,7 @@ class Uploader extends EventEmitter {
     this.aborted = true;
     this.sourceStream.removeAllListeners('data');
     this.sourceStream.removeAllListeners('end');
-    this.sourceStream.destroy(new Error('stopped'));
+    this.sourceStream.destroy();
     this.emit('stopped');
   }
 
@@ -76,25 +76,28 @@ class Uploader extends EventEmitter {
         return;
       }
 
-      Log.debug('buffer on data', chunk.length, 'total', uploadChunk.length);
+      // Log.debug('buffer on data', chunk.length, 'total', uploadChunk.length);
       
       buf = Uint8Array.prototype.slice.call(buf, CHUNK);
 
       this.sourceStream.pause();
       await this.uploadChunk(uploadChunk);
-      Log.debug('upload on telegram OK', this.getCurrentPortion().currentPart);
+      
       this.sourceStream.resume();
 
     });
 
     this.sourceStream.on('end', async () => {
+      const currentPortion = this.getCurrentPortion();
 
-      Log.debug('upload buffer completed:', buf.length, 'part:', this.getCurrentPortion().currentPart + 1);
+      Log.debug('stream is ended:', buf.length, 'part:', currentPortion.currentPart + 1);
 
       const uploadChunk = Uint8Array.prototype.slice.call(buf, 0, CHUNK);
       if ( uploadChunk.length ) {
-        
+        Log.info('upload last chunk and then save into channel');
         await this.uploadChunk(uploadChunk, true);
+      } else {
+        await this.sendToChannel(currentPortion);
       }
 
       if ( !this.aborted ) {
@@ -149,6 +152,7 @@ class Uploader extends EventEmitter {
 
       if ( this.totalFileBytes && this.totalFileBytes.length ) {
         // force pause stream
+        Log.debug('Force upload in-memory buffer because it exceeds upload.min_size:', this.totalFileBytes.length);
         this.sourceStream.pause();
         while( this.totalFileBytes.length ) {
           const buf = Uint8Array.prototype.slice.call(this.totalFileBytes, 0, CHUNK);
@@ -156,12 +160,13 @@ class Uploader extends EventEmitter {
           
           currentPortion.currentPart += 1;
           
-          await this.client.sendFileParts(
+          const res = await this.client.sendFileParts(
             currentPortion.fileId,
             currentPortion.currentPart,
             -1,
             buf,
           );
+          Log.debug('upload on telegram OK, part:', currentPortion.currentPart, 'total bytes:', (currentPortion.currentPart + 1) * CHUNK);
         }
         this.totalFileBytes = null;
 
@@ -170,6 +175,7 @@ class Uploader extends EventEmitter {
     } else {
       this.totalFileBytes = Buffer.concat([this.totalFileBytes, buffer]);
       shouldUpload = false;
+      Log.debug('Buffer in-memory because of upload.min_size:', this.totalFileBytes.length);
     }
 
     if (shouldUpload) {
@@ -178,16 +184,17 @@ class Uploader extends EventEmitter {
 
       if ( sendToChannel ) {
         // handle next portion of file
-        this.currentFilePartIndex++;
+        this.newPortionFile();
       }
 
       if ( !this.aborted ) {
-        await this.client.sendFileParts(
+        const res = await this.client.sendFileParts(
           currentPortion.fileId,
           currentPortion.currentPart,
           (sendToChannel || lastChunk ? Math.ceil(currentPortion.size / CHUNK) : -1),
           buffer,
         );
+        Log.debug('upload on telegram OK, part:', currentPortion.currentPart, 'total bytes:', (currentPortion.currentPart + 1) * CHUNK);
       }
     }
 

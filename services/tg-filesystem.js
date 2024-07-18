@@ -354,10 +354,11 @@ class TGFileSystem extends v2.VirtualFileSystem {
         });
       
         ctx.context.request.on('close', () => {
-          if ( !service.aborted ) {
-            service.stop();
-            Log.warn('[writefile]', 'request has been aborted because of close')
-          } 
+          // if ( !service.aborted ) {
+          //   service.stop();
+          //   Log.warn('[writefile]', 'request has been aborted because of close')
+          // } 
+          Log.info('request has been closed. Do not abort the process');
         });
       }
 

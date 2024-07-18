@@ -206,6 +206,7 @@ class TelegramLogin {
 
   infos = [];
   premium = false;
+  username = '';
 
   maxUploadParts = 0;
 
@@ -222,6 +223,7 @@ class TelegramLogin {
       });
 
       this.premium = user.users[0].premium;
+      this.username = user.users[0].username;
   
       return user;
 
@@ -237,8 +239,7 @@ class TelegramLogin {
       });
   
       this.infos = info.config.value;
-
-      this.maxUploadParts = this.getConfig( this.premium ? 'upload_max_fileparts_premium' : 'upload_max_fileparts_default' );
+      this.maxUploadParts = 4; // this.getConfig( this.premium ? 'upload_max_fileparts_premium' : 'upload_max_fileparts_default' );
 
     } catch (error) {
       return Promise.reject(error);

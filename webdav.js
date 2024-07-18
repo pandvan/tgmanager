@@ -62,6 +62,8 @@ async function start() {
   const fsApi = new FSApi(rootFolder);
   WebDavServer.setFileSystemSync('/', new TGFileSystem(fsApi));
   WebDavServer.start(() => Log.info('up and running on port', Config.webdav.port));
+  WebDavServer.server.requestTimeout = 0;
+  WebDavServer.server.headersTimeout = 0;
 }
 
 start();

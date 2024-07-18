@@ -285,40 +285,41 @@ class FSApi {
 
     await uploader.prepare();
 
-    uploader.on('completeUpload', async (portions, chl) => {
+    uploader.on('completeUpload', (portions, chl) => {
+      callback && callback(dbFile);
+    })
+
+    uploader.on('portionUploaded', async (portion, chl) => {
       await DB.write( async () => {
-        const newFileData = {};
+        let newFileData = await DB.getItem(dbFile.id);
+        newFileData = DB.remap(newFileData);
         newFileData.channel = chl;
         // dbFile.fileids = portions.map( (item) => String(item.fileId) );
         // dbFile.sizes = portions.map( (item) => item.size );
 
-        if (portions[0].content) {
+        if (portion.content) {
           // file will be stored in DB
-          newFileData.content = portions[0].content;
+          newFileData.content = portion.content;
           newFileData.parts = [];
         } else {
           newFileData.content = null;
           // dbFile.parts = portions.map( (item) => item.msgid );
-          newFileData.parts = portions.map((item, i) => {
-            return {
-              messageid: item.msgid,
-              originalfilename: item.filename,
-              hash: '',
-              fileid: String(item.fileId),
-              size: Number(item.size),
-              index: i
-            };
-          })
+          newFileData.parts.push({
+            messageid: portion.msgid,
+            originalfilename: portion.filename,
+            hash: '',
+            fileid: String(portion.fileId),
+            size: Number(portion.size),
+            index: portion.index
+          });
         }
 
-        newFileData.channel = channelid;
+        // newFileData.channel = channelid;
         newFileData.state = 'ACTIVE';
 
         await DB.updateFile(dbFile, newFileData);
 
         Log.info('file has been correctly uploaded, id: ', dbFile.id);
-
-        callback && callback(dbFile);
 
       });
     });

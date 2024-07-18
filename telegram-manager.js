@@ -27,7 +27,7 @@ async function start() {
   }
 
   if ( Config.http ) {
-    require('./server-fastify');
+    require('./server-express');
   }
   if ( Config.webdav ) {
     require('./webdav');
