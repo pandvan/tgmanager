@@ -239,7 +239,7 @@ class TelegramLogin {
       });
   
       this.infos = info.config.value;
-      this.maxUploadParts = 4; // this.getConfig( this.premium ? 'upload_max_fileparts_premium' : 'upload_max_fileparts_default' );
+      this.maxUploadParts = this.getConfig( this.premium ? 'upload_max_fileparts_premium' : 'upload_max_fileparts_default' );
 
     } catch (error) {
       return Promise.reject(error);
