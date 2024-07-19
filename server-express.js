@@ -158,12 +158,6 @@ App.post('/folder/:fldid/file/:filename?', async function (request, res, next) {
 
   let path = await FSApiLib.buildPath(parent);
 
-  // request.socket.setKeepAlive(true);
-  // request.socket.setTimeout(1000 * 60 * 60 * 1); // 1 hours
-  // request.setTimeout(1000 * 60 * 60 * 1);
-
-  // res.connection.setTimeout(0);
-
   const Form = new Multiparty.Form();
 
   Form.on('part', (part) => {
