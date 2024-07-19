@@ -40,7 +40,7 @@ class TelegramApi {
       storageOptions: {
         path: Path.resolve( Path.join(Config.data, `/telegram-session-${userid}.json`) ),
         instance: Config.telegram.database ? new TelgramStorage(userid) : undefined
-      },
+      }
     });
     this._login = new TelegramLogin(this);
     this.userid = userid;

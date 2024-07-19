@@ -68,6 +68,7 @@ App.get('/files/:fileid', async function (request, res, next) {
 
   if ( !request.params.fileid ) {
     res.status(422);
+    Log.error('invalid fileId');
     return next({error: 'invalid file id'});
   }
 
@@ -75,6 +76,7 @@ App.get('/files/:fileid', async function (request, res, next) {
 
   if ( !file || file.type == 'folder' ) {
     res.status(422);
+    Log.error('file not found or is not a folder', !!file);
     return next({error: `file not found with id ${request.params.fileid}`});
   }
 
