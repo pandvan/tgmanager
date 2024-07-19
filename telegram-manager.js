@@ -43,12 +43,13 @@ async function start() {
 }
 
 
-process.on('uncaughtException', (err, origin) => {
-  Logger.log(
-    `Caught exception: ${err}\n` +
-    `Exception origin: ${origin}\n`,
-  );
-});
+// process.on('uncaughtException', (err, origin) => {
+//   Logger.log(
+//     `Caught exception: ${err}\n` +
+//     `Exception origin: ${origin}\n`,
+//      err.stack
+//   );
+// });
 
 function handle(signal) {
   Logger.log(`---- Exit: ${signal} ----`);

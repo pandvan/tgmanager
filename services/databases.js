@@ -2,9 +2,6 @@ const {Config} = require('../config');
 const Logger = require('../logger');
 const ShortUniqueID = require('short-unique-id');
 const Events = require('events');
-const Process = require('process');
-
-const ShortUUID = new ShortUniqueID({length: 10});
 
 const Event = new Events.EventEmitter();
 
@@ -14,8 +11,10 @@ let DB = null;
 
 async function initDatabase() {
 
-  if (Config.db.startsWith('mongo://') ) {
-    // TODO: use mongo
+  if (Config.db.startsWith('mongodb://') ) {
+    const MongoDB = require('../databases/mongo');
+    DB = new MongoDB();
+    await DB.init(Event);
   } else {
     // use Realm
     const RealmDB = require('../databases/realm');

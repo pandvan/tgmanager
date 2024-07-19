@@ -190,7 +190,7 @@ class FSApi {
 
         for ( const part of parts ) {
           const mess = await client.getMessage({id: sourceChannel.id, hash: sourceChannel.access_hash}, part.messageid);
-          if ( mess ) {
+          if ( mess && mess.media ) {
             const {media} = mess;
             const {document} = media;
             if ( part.fileid == document.id ) {
@@ -293,7 +293,7 @@ class FSApi {
       await DB.write( async () => {
         let newFileData = await DB.getItem(dbFile.id);
         newFileData = DB.remap(newFileData);
-        newFileData.channel = chl;
+        newFileData.channel = chl || newFileData.channel;
         // dbFile.fileids = portions.map( (item) => String(item.fileId) );
         // dbFile.sizes = portions.map( (item) => item.size );
 

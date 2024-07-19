@@ -381,7 +381,7 @@ class RealmDB {
   
   async setTelegramData(data) {
   
-    return await write( () => {
+    return await this.write( () => {
       return this.DB.create( TelegramData.Name, data, 'modified');
     })
   
