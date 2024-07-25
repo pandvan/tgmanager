@@ -7,3 +7,4 @@ pyyaml
 pymongo
 uvloop
 asyncio
+aiohttp_basicauth
