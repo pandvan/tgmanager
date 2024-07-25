@@ -1,0 +1,9 @@
+aiohttp
+pyrogram
+python-dotenv
+TgCrypto
+argparse
+pyyaml
+pymongo
+uvloop
+asyncio
