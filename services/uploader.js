@@ -52,8 +52,6 @@ class Uploader extends EventEmitter {
 
   async execute(source) {
 
-    this.currentFilePartIndex = 0;
-
     let buf = null;
 
     this.newPortionFile();

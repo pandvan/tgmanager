@@ -222,7 +222,7 @@ class FSApi {
 
   }
 
-  async createFileWithContent(path, stream, callback) {
+  async createFileWithContent(path, callback) {
     const paths = this.splitPath(path);
     const folder = await this.getLastFolder(path, true);
 
@@ -395,7 +395,6 @@ class FSApi {
 
   async move(pathFrom, pathTo) {
 
-    const pathsFrom = this.splitPath(pathFrom);
     const pathsTo = this.splitPath(pathTo);
 
     const oldFile = await this.getLastFolder(pathFrom);

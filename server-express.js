@@ -40,7 +40,7 @@ App.get("/", (req, res, next) => {
   res.render("webUI/index");
 });
 
-App.get('/folder/:fldId', async (request, res, next) => {
+App.get('/folders/:fldId', async (request, res, next) => {
 
   const {fldId} = request.params;
 
@@ -136,7 +136,7 @@ App.get('/files/:fileid', async function (request, res, next) {
   service.execute(res);
 });
 
-App.post('/folder/:fldid/file/:filename?', async function (request, res, next) {
+App.post('/folders/:fldid/files/:filename?', async function (request, res, next) {
 
   const {fldid: parentfolder, filename} = request.params;
 
@@ -230,7 +230,7 @@ App.post('/folder/:fldid/file/:filename?', async function (request, res, next) {
   }
 });
 
-App.post('/folder/:fldid/folder/:foldername', async function (request, res, next) {
+App.post('/folders/:fldid/folder/:foldername', async function (request, res, next) {
   let {fldid: parentfolder, foldername} = request.params;
 
   if ( !foldername ) {
@@ -265,17 +265,17 @@ App.post('/folder/:fldid/folder/:foldername', async function (request, res, next
 
 });
 
-App.put('/file/:fileid', async function (request, res, next) {
+App.put('/files/:fileid', async function (request, res, next) {
   // HANDLE rename/move file
   return next('cannot handle yet');
 });
 
-App.put('/folder/:fldid', async function (request, res, next) {
+App.put('/folders/:fldid', async function (request, res, next) {
   // HANDLE rename/move folder
   return next('cannot handle yet');
 });
 
-App.delete('/file/:fileid', async function (request, res, next) {
+App.delete('/files/:fileid', async function (request, res, next) {
 
   if ( !request.params.fileid ) {
     res.status(422);
@@ -304,7 +304,7 @@ App.delete('/file/:fileid', async function (request, res, next) {
   }
 });
 
-App.delete('/folder/:fldId', async function (request, res, next) {
+App.delete('/folders/:fldId', async function (request, res, next) {
 
   const {fldId} = request.params;
 

@@ -162,7 +162,7 @@ class TelegramApi {
         attributes: [{
           '_': 'documentAttributeFilename',
           file_name: filename
-        }]
+        }],
       }
     });
   }

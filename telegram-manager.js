@@ -35,7 +35,6 @@ async function start() {
   if ( Config.strm ) {
     STRM.init( ROOT_ID, Path.resolve(Config.strm.folder) );
   }
-
   if ( Config.telegram.bot_token ) {
     Bot.start();
   }

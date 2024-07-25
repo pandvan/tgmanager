@@ -35,7 +35,7 @@ const EntryS = new Schema({
   parentfolder: String,
   type: String,
   info: {type: Map, of: String},
-  content: Buffer,
+  content: String,
   state: {type: String, default: () => 'ACTIVE'}
 }, TIMESTAMPS);
 
@@ -99,7 +99,7 @@ class MongoDB {
 
   async getItem(id) {
     const ret = await EntryM.findOne({id});
-    return ret;
+    return this.remap(ret);
   }
 
   async getChildren(folderId, type) {
@@ -107,9 +107,10 @@ class MongoDB {
       parentfolder: folderId
     };
     if ( type ) {
-      filter.type == type;
+      filter.type = type;
     }
-    return await EntryM.find(filter);
+    const resp = await EntryM.find(filter);
+    return (resp || []).map( i => this.remap(i));
   }
 
   async removeItem(itemId) {
@@ -118,7 +119,7 @@ class MongoDB {
     }
 
     const ret = await EntryM.deleteOne({id: itemId});
-    return ret;
+    return this.remap(ret);
 
     // const item = this.DB.objectForPrimaryKey(Entry.Name, itemId);
     // await this.write(() => {
@@ -145,9 +146,11 @@ class MongoDB {
     }
   
     if (parent) {
-      return await EntryM.findOne(filter);
+      const ret = await EntryM.findOne(filter);
+      return ret ? this.remap(ret) : null;
     } else {
-      return await EntryM.find(filter);
+      const resp = await EntryM.find(filter);
+      return (resp || []).map( i => this.remap(i));
     }
   }
 
@@ -160,7 +163,7 @@ class MongoDB {
   
     return await this.write( async () => {
 
-      folder.type = 'folder',
+      folder.type = 'folder';
       folder.filename = folder.filename.replace(/\//gi, '-');
       folder.parentfolder = parent || folder.parentfolder;
       folder.state = folder.state || 'ACTIVE';
@@ -169,7 +172,7 @@ class MongoDB {
   
       let newFold = await EntryM.create( folder );
   
-      // newFold = this.remap(newFold);
+      newFold = this.remap(newFold);
   
       // Process.nextTick(() => Event.emit('created', newFold));
   
@@ -193,7 +196,7 @@ class MongoDB {
       const oldFold = this.remap(folder);
   
       // force create a new folder
-      folder.type = 'folder',
+      folder.type = 'folder';
       folder.filename = data.filename.replace(/\//gi, '-');
       folder.parentfolder = parent || data.parentfolder || folder.parentfolder;
       folder.state = 'ACTIVE';
@@ -201,7 +204,7 @@ class MongoDB {
       
       let newFold = await EntryM.updateOne({id: folder.id}, folder);
 
-      // newFold = this.remap(newFold);
+      newFold = this.remap(newFold);
   
       // Process.nextTick(() => Event.emit('changed', newFold, oldFold));
   
@@ -217,7 +220,7 @@ class MongoDB {
       throw `File '${file.filename}' already exists in '${parent}'`;
     }
   
-    if ( (!file.content || file.content.byteLength <= 0) && !file.channel) {
+    if ( (!file.content || (file.content.byteLength <= 0 || file.content.length <=0)) && !file.channel) {
       throw `File ${file.filename} has no channel`;
     }
   
@@ -227,12 +230,20 @@ class MongoDB {
       file.parentfolder = parent || file.parentfolder;
       file.type = file.type || 'application/octet-stream';
       file.state = file.state || 'ACTIVE';
+
+      if (file.content) {
+        if ( typeof file.content === 'object' ) {
+          file.content = Buffer.from(file.content).toString('base64');
+        }
+      }
       
       let newFile = await EntryM.create( file );
+
+      newFile = this.remap(newFile);
   
       // Process.nextTick(() => Event.emit('created', this.remap(newFile) ));
   
-      return this.remap(newFile);
+      return newFile;
     });
   }
 
@@ -257,12 +268,17 @@ class MongoDB {
         parentfolder: parent || data.parentfolder || file.parentfolder,
         state: data.state || file.state || 'ACTIVE',
         channel: 'channel' in data ? data.channel : file.channel,
-        parts: data.parts || file.parts,
-        content: data.content
+        parts: data.parts || file.parts
       };
-  
+
+      if ( data.content ) {
+        if ( typeof data.content == 'object' ) {
+          insert.content = Buffer.from(data.content).toString('base64');
+        }
+      }
   
       let newFile = await EntryM.updateOne( {id: file.id}, insert );
+      newFile = this.remap(newFile);
   
       // Process.nextTick(() => Event.emit('changed', newFile, oldFile));
   
@@ -322,7 +338,13 @@ class MongoDB {
   }
 
   remap(item) {
-    const content = item.content;
+    let content = item.content;
+
+    if ( content ) {
+      if ( typeof content === 'string' ) {
+        content = Buffer.from(content, 'base64');
+      }
+    }
 
     return {
       id: item.id,
