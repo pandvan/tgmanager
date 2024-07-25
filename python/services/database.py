@@ -79,6 +79,7 @@ def init_database():
   rootfolder = getItem( ROOT_ID )
   if rootfolder is None:
     # create folder
+    Log.info('creating ROOT folder')
     fld = TGFolder()
     fld.id = ROOT_ID
     fld.channel = Config.telegram.upload.channel
@@ -208,7 +209,12 @@ def create_folder(folder: TGFolder, parent = None):
   if not folder.id:
     folder.id = get_UUID()
 
-  DB.insert_one( vars(folder) )
+  ret = DB.insert_one( vars(folder) )
+
+  # faster than getItem
+  obj = DB.find_one({'_id': ret.inserted_id})
+  return remap( obj )
+
 
 
 

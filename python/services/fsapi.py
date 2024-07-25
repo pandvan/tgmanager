@@ -126,6 +126,29 @@ class FSApi():
 
       return dbFile
 
+
+  def create_folder_recursive(self, folderpath: str, start_parent = ROOT_ID):
+
+    path = self.split_path(folderpath)
+
+    parentFolder = getItem(start_parent)
+
+    while( len(path) > 0 ):
+      folderName = path[0]
+      path = path[1:]
+
+      destPath = getItemByFilename( folderName, parentFolder.id, 'folder')
+      if ( destPath is None ):
+        destPath = create_folder( TGFolder(
+          parentfolder = parentFolder.id,
+          filename = folderName
+        ), parentFolder.id)
+      
+      parentFolder = destPath
+    
+    return parentFolder
+  
+  
   async def move(self, pathFrom: str, pathTo: str):
 
     pathsTo = self.split_path(pathTo)
@@ -345,7 +368,7 @@ class FSApi():
       p = pf.parentfolder
     
 
-    if ( channelid is None ):
+    if ( not channelid ):
       Log.info('file will be uploaded into default channel')
       channelid = Config.telegram.upload.channel
 

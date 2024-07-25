@@ -27,70 +27,38 @@ async def start():
   TGClients.check()
   
 
-  if Config.http.enabled:
-    # start http server
-    Log.info('starting http server')
-    from httpserver import web_server
+  if initialize.Args.list is True:
+     
+    from commands.list import ListFS
+    listfs = ListFS()
+    listfs.listing()
 
-    server = web.AppRunner(web_server())
-    await server.setup()
-    await web.TCPSite(server, Config.http.host, Config.http.port).start()
-  
-  # if Config.telegram.bot_token:
-  #   from tgbot import Bot
-  #   await Bot.start()
+  elif initialize.Args.sync is True:
+    # enable sync command
+    from commands.sync import Sync
 
+    sync = Sync()
+    await sync.sync_command(initialize.Args)
 
-  await idle()
-  # mess = await current.get_message(1916139954, 696)
+  else:
 
-  # Log.info(mess)
+    # start tool
 
-  # media = TelegramApi.get_media_from_message( mess )
+    if Config.http.enabled:
+      # start http server
+      Log.info('starting http server')
+      from httpserver import web_server
 
-  # Log.info(media)
-
-  # file = await current.get_file(media.filedata.media_id, media.filedata.access_hash, media.filedata.file_reference)
-
-  # Log.info( len(file.bytes) )
-
-  # f = open("/Users/fatshotty/Desktop/mount3/testee/fede.js", "rb")
-  # file_id = TelegramApi.generate_id()
-  # file_part = await current.send_file_parts(
-  #   file_id, 
-  #   0, 
-  #   1, 
-  #   f.read()
-  # )
-
-  # mess = await current.move_file_to_chat(
-  #   1916139954, file_id, 1, 'fede.js', mime
-  # )
-
-  # uploader = Uploader(current, "fede.js")
-
-  # await uploader.execute(f)
-
-  # root = getItem(ROOT_ID)
-  # fsapi = FSApi(root)
-
-  # f = open('/Users/fatshotty/Desktop/2024-06-18 18-08-43_edit2 18.31.41.mkv', 'rb')
-
-  # service = await fsapi.create_file_with_content('/Screen Recording.mov')
-
-  # if service is not None:
-  #   await service.execute( f )
+      server = web.AppRunner(web_server())
+      await server.setup()
+      await web.TCPSite(server, Config.http.host, Config.http.port).start()
+    
+    if Config.telegram.bot_token:
+      from tgbot import Bot
+      await Bot.start()
 
 
-  # filejs = getItem('u8qryi8xb9')
-
-  # f = open("/Users/fatshotty/Desktop/mount3/testee/Screen.mov", "wb")
-  # service = await fsapi.read_file_content('Screen Recording.mov', f)
-
-  # if service is not None:
-  #   await service.execute( f )
-  
-  # f.close()
+    await idle()
 
 
 loop = asyncio.get_event_loop()

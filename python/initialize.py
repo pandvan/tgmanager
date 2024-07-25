@@ -17,24 +17,24 @@ Log = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='Telegram Manager')
 
-parser.add_argument('config',
+parser.add_argument('--config',
                     type=str,
                     help='config file path',
                     nargs="?",
                     default=os.path.join( CWD, "config.yaml") )
 
-parser.add_argument('data',
+parser.add_argument('--data',
                     type=str,
                     nargs="?",
                     help=f"data folder, default to {os.path.join( CWD, "data/")}")
 
-parser.add_argument('database',
+parser.add_argument('--database',
                     type=str,
                     nargs="?",
                     help="database URI for mongodb",
                     default="")
 
-parser.add_argument('log',
+parser.add_argument('--log',
                     type=str,
                     nargs="?",
                     help="set log level",
@@ -46,28 +46,51 @@ parser.add_argument('--http',
                     action=argparse.BooleanOptionalAction
                     )
 
-parser.add_argument('http_host',
+parser.add_argument('--http_host',
                     type = str,
                     nargs='?',
                     help='HTTP bind ip'
                     )
 
-parser.add_argument('http_port',
+parser.add_argument('--http_port',
                     type = int,
                     nargs='?',
                     help='HTTP bind port'
                     )
 
-parser.add_argument('http_user',
+parser.add_argument('--http_user',
                     type = str,
                     nargs='?',
                     help='HTTP Basic Auth user'
                     )
 
-parser.add_argument('http_pass',
+parser.add_argument('--http_pass',
                     type = str,
                     nargs='?',
                     help='HTTP Basic Auth password'
+                    )
+
+parser.add_argument('--list',
+                    type = bool,
+                    help='show all file and folders',
+                    action=argparse.BooleanOptionalAction
+                    )
+
+parser.add_argument('--sync',
+                    type = bool,
+                    help='local folder to sync',
+                    action=argparse.BooleanOptionalAction
+                    )
+
+parser.add_argument('--source',
+                    type = str,
+                    nargs='?',
+                    help='local folder'
+                    )
+parser.add_argument('--destination',
+                    type = str,
+                    nargs='?',
+                    help='destination folder'
                     )
 
 Args = parser.parse_args()
@@ -75,11 +98,10 @@ Args = parser.parse_args()
 if not os.path.exists(Args.config) :
   raise Exception(f"Config file '{Args.config}' is missing")
 
-
 configuration.load_config(Args)
 
 if not os.path.exists(configuration.Config.data):
-  os.makedirs(configuration.onfig.data)
+  os.makedirs(configuration.Config.data)
 
 
 Log.info(f"using {configuration.Config.data} as data folder")
@@ -94,3 +116,4 @@ if configuration.Config.logger == 'error':
   logging.root.setLevel(level=logging.ERROR)
 if configuration.Config.logger == 'no':
   logging.root.setLevel(level=logging.FATAL)
+

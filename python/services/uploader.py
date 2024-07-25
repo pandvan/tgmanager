@@ -106,7 +106,6 @@ class Uploader(EventEmitter):
         if not self.aborted:
           # TODO: emit
           self.emit('completeUpload', self.total_file_parts, self.channel_id)
-          Log.info("process has been aborted")
         
         # loop completed
         break
