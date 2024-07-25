@@ -36,7 +36,7 @@ class TelegramApi:
       api_hash = api_hash,
       workdir = Config.data,
       bot_token = bot_token,
-      no_updates = True,
+      no_updates = not bot_token,
       max_concurrent_transmissions = 5
     )
 
@@ -88,11 +88,13 @@ class TelegramApi:
         "video_note",
     )
     for attr in media_types:
-        media = getattr(message, attr, None)
-        if media:
-          file_data =  FileId.decode(media.file_id)
-          setattr(media, "filedata", file_data)
-          return media
+      media = getattr(message, attr, None)
+      if media:
+        file_data =  FileId.decode(media.file_id)
+        setattr(media, "filedata", file_data)
+        return media
+  
+    return None
 
 
   async def get_message(self, channel_id: int, mesgId: int):

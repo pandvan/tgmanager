@@ -31,7 +31,7 @@ async def start():
      
     from commands.list import ListFS
     listfs = ListFS()
-    listfs.listing()
+    listfs.listing(initialize.Args)
 
   elif initialize.Args.sync is True:
     # enable sync command
@@ -39,6 +39,13 @@ async def start():
 
     sync = Sync()
     await sync.sync_command(initialize.Args)
+  
+  elif initialize.Args.strm is True:
+    # enable sync command
+    from commands.strm import Strm
+
+    strm = Strm()
+    strm.create(initialize.Args)
 
   else:
 

@@ -258,6 +258,15 @@ def create_file(file: TGFile, parent = None):
   if file.content is not None:
     if type( file.content ) is not bytes:
       file.content = base64.b64decode( file.content )
+  
+  parts = None
+  _parts = file.parts
+  if _parts is not None:
+    parts = []
+    for p in _parts:
+      parts.append( vars(p) )
+  
+  file.parts = parts
     
   if not file.id:
     file.id = get_UUID()
@@ -308,7 +317,7 @@ def update_file(file: TGFile, data: TGFile, parent = None):
   return getItem(insert['id'])
 
 
-def get_files_by_messageI_id_and_channel(msgId: int, channel: str):
+def get_file_by_message_id_and_channel(msgId: int, channel: str):
   filter = {
     'type': { '$not': { '$eq': 'folder' } },
     'channel': channel,
@@ -316,15 +325,20 @@ def get_files_by_messageI_id_and_channel(msgId: int, channel: str):
     'parts.0': { '$exists': True },
     'parts.messageid': msgId
   }
-
-  return DB.find(filter)
+  ret = DB.find_one(filter)
+  if ret is not None:
+    return remap(ret)
 
 def get_folder_by_channel(channelId: str):
   filter = {
     'type': 'folder',
     'channel': channelId
   }
-  return DB.find(filter)
+  ret = DB.find(filter)
+  res = []
+  for item in ret:
+    res.append( remap(item) )
+  return res
 
 
 def get_telegram_data(key: str):

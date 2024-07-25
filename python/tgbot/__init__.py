@@ -1,12 +1,17 @@
 import logging
+import mimetypes
 from configuration import Config
+from constants import ROOT_ID
+import time
 from pyrogram import filters
+from services.telegram import TelegramApi
 from pyrogram.types import Message
 from pyrogram.handlers import MessageHandler
 from services.telegram import TelegramApi
 from services.tgclients import TGClients
+from services.database import TGPart, TGFile, get_file_by_message_id_and_channel, get_folder_by_channel, create_file
 
-logger = logging.getLogger("BOT")
+Log = logging.getLogger("BOT")
 
 client = None
 
@@ -17,7 +22,7 @@ class Bot():
 
   @staticmethod
   async def start():
-    logger.debug("starting..")
+    Log.debug("starting..")
 
     current = TGClients.next_client()
 
@@ -25,21 +30,73 @@ class Bot():
 
     await client.start()
 
-    _filters = filters.private & (
+    _filters = (
         filters.document
         | filters.video
         | filters.audio
-        | filters.animation
         | filters.voice
         | filters.video_note
         | filters.photo
-        | filters.sticker
     )
 
     client.api.add_handler( MessageHandler(on_message, _filters ) )
 
-    logger.info("Started")
+    Log.info("Started")
   
 
-def on_message(_, m: Message):
-  pass
+async def on_message(_, message: Message):
+  # wait for 2 seconds
+  # database is updating data
+  media = TelegramApi.get_media_from_message(message)
+  if media is None:
+    Log.info("message is not a file")
+    return
+  
+  time.sleep(2)
+
+
+  channel_id = message.chat.id
+  if len(str(channel_id)) > 10:
+    channel_id = str(channel_id)[ 4: ]
+
+  Log.info(f"got a file in channel {channel_id}")
+
+  dbFile = get_file_by_message_id_and_channel(message.id, channel_id)
+
+  if dbFile is not None:
+    Log.info(f"file '{media.file_name}' already saved in DB")
+  else:
+
+    Log.debug(f"file '{media.file_name}' will be stored in DB")
+
+    folders = get_folder_by_channel(channel_id)
+    if len(folders) > 0:
+      parentFolder = folders[0]
+      Log.info(f"file {media.file_name} will be stored in '{parentFolder.filename}'")
+      parentFolder = parentFolder.id
+    else:
+      Log.info(f"file {media.file_name} will be stored in root folder")
+      parentFolder = ROOT_ID
+    
+    client = TGClients.next_client(True)
+
+    msg = await client.get_message(channel_id, message.id)
+
+    dbFile = create_file( TGFile(
+      filename = media.file_name,
+      parts = [ TGPart(
+        messageid = msg.id,
+        originalfilename = media.file_name,
+        hash = '',
+        fileid = media.filedata.media_id,
+        size = media.file_size,
+        index = 0
+      )],
+      parentfolder = parentFolder,
+      type = media.mime_type or mimetypes.guess_type(media.file_name)[0] or 'application/octet-stream',
+      content = None,
+      channel = channel_id
+    ), parentFolder)
+    Log.info(f"'{media.file_name}' has been correctly saved into DB: {dbFile.id}'")
+
+

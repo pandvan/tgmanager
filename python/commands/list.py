@@ -14,7 +14,7 @@ class ListFS():
     self.fsapi = FSApiLib( root )   
      
 
-  def listing(self, parent = ROOT_ID):
+  def listing(self, Args, parent = ROOT_ID):
 
     items = getChildren(parent)
 

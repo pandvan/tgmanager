@@ -82,6 +82,27 @@ parser.add_argument('--sync',
                     action=argparse.BooleanOptionalAction
                     )
 
+parser.add_argument('--strm',
+                    type = bool,
+                    help='local folder into create strm files',
+                    action=argparse.BooleanOptionalAction
+                    )
+parser.add_argument('--strm_url',
+                    type = str,
+                    help='http URL to write into strm files'
+                    )
+parser.add_argument('--strm_folder',
+                    type = str,
+                    help='folder to create files into'
+                    )
+
+parser.add_argument('--strm_re_create_folder',
+                    type = bool,
+                    help='force to re-create strm folder',
+                    action=argparse.BooleanOptionalAction
+                    )
+
+
 parser.add_argument('--source',
                     type = str,
                     nargs='?',

@@ -33,7 +33,7 @@ class TGClients():
     client = Clients[ TGClients.current_client ]
     Log.info(f"using client: {client.username}")
 
-    if upload and client.isBot:
+    if upload and client.is_bot:
       return TGClients.next_client(upload)
 
     return client
