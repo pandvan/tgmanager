@@ -1,4 +1,5 @@
 from pymongo import MongoClient, TEXT
+import datetime
 from configuration import Config
 from urllib.parse import urlparse
 from constants import ROOT_ID, ROOT_NAME
@@ -12,8 +13,11 @@ import logging
 Log = logging.getLogger('DB')
 
 
+def NOW():
+  return datetime.datetime.now(datetime.UTC)
+
 class TGFolder:
-  def __init__(self, id = '', filename = '', channel = '', parentfolder = '', info = {}, state = 'ACTIVE'):
+  def __init__(self, id = '', filename = '', channel = '', parentfolder = '', info = {}, state = 'ACTIVE', ctime = None, mtime = None):
     self.id = id
     self.filename = filename
     self.channel = channel
@@ -23,6 +27,9 @@ class TGFolder:
     self.info = info
     self.content = None
     self.state = state or 'ACTIVE'
+
+    self.ctime = ctime or NOW()
+    self.mtime = mtime or NOW()
 
 class TGPart:
   def __init__(self, messageid: int = 0, originalfilename: str = '', fileid: str = '', size: int = 0, index: int = -1, hash: str | None = None):
@@ -36,7 +43,7 @@ class TGPart:
 type TGParts = list[TGPart]
 
 class TGFile:
-  def __init__(self, id = '', filename = '', channel = '', parts: TGParts | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE'):
+  def __init__(self, id = '', filename = '', channel = '', parts: TGParts | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None):
     self.id = id
     self.filename = filename
     self.channel = channel
@@ -46,6 +53,9 @@ class TGFile:
     self.info = info
     self.content = content
     self.state = state or 'ACTIVE'
+
+    self.ctime = ctime or NOW()
+    self.mtime = mtime or NOW()
   
   def content_length(self):
     return len( self.content )
@@ -138,16 +148,19 @@ def getItemByFilename(filename: str, parent: str = None, type: str = None):
   if parent is not None: 
     filter['parentfolder'] = parent
   
-  fn = re.sub("/", "-", filename, flags=re.IGNORECASE)
+  # TODO: search ignorecase
+  
+  fn = re.sub("/", "-", filename) #, flags=re.IGNORECASE)
   filter['filename'] = fn
 
   if type is not None:
     filter['type'] = type
 
   if parent is not None:
-    ret = DB.find_one(filter)
-    if ret is not None:
-      return remap( ret )
+    ret = DB.find(filter).collation( { 'locale': 'en', 'strength': 1 } )
+    for item in ret:
+      # get first item
+      return remap(item)
   else:
     ret = DB.find(filter)
     res = []
@@ -192,10 +205,19 @@ def create_folder(folder: TGFolder, parent = None):
   folder.parts = None
   folder.content = None
 
+  folder.ctime = NOW()
+  folder.mtime = NOW()
+
   if not folder.id:
     folder.id = get_UUID()
 
   ret = DB.insert_one( vars(folder) )
+
+  if folder.parentfolder:
+    # update timestamps
+    pfolder = getItem( folder.parentfolder )
+    pfolder.mtime = NOW()
+    update_folder(pfolder, pfolder)
 
   # faster than getItem
   obj = DB.find_one({'_id': ret.inserted_id})
@@ -240,6 +262,9 @@ def create_file(file: TGFile, parent = None):
   file.type = file.type or 'application/octet-stream'
   file.state = file.state or 'ACTIVE'
 
+  file.ctime = NOW()
+  file.mtime = NOW()
+
   if file.content is not None:
     if type( file.content ) is not bytes:
       file.content = base64.b64decode( file.content )
@@ -257,6 +282,12 @@ def create_file(file: TGFile, parent = None):
     file.id = get_UUID()
     
   ret = DB.insert_one( vars(file) )
+
+  if file.parentfolder:
+    # update timestamps
+    pfolder = getItem( file.parentfolder )
+    pfolder.mtime = NOW()
+    update_folder(pfolder, pfolder)
 
   # faster than getItem
   obj = DB.find_one({'_id': ret.inserted_id})
@@ -282,6 +313,7 @@ def update_file(file: TGFile, data: TGFile, parent = None):
   insert['state'] = data.state or file.state or 'ACTIVE'
   insert['channel'] = data.channel if data.channel is not None else file.channel
 
+  insert['mtime'] = NOW()
 
   parts = None
   _parts = data.parts or file.parts
