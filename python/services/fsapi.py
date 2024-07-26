@@ -41,6 +41,25 @@ class FSApi():
     # TODO: filter by Boolean
     return p.split('/')
   
+
+  def exists(self, path: str, parent_id: str = ROOT_ID):
+    if parent_id == ROOT_ID:
+      item = self.root_folder
+    else:
+      item = getItem(parent_id)
+    
+    paths = self.split_path(path)
+
+    while( len(paths) > 0 ):
+      childName = paths[0]
+      paths = paths[1:]
+      item_id = item.id
+      item = getItemByFilename(childName, item_id)
+      if ( item is None ):
+        return None
+    
+    return item is not None
+
   async def get_last_folder(self, path: str, skipLast: bool = False):
     paths = self.split_path(path)
     if ( skipLast ):
@@ -127,11 +146,15 @@ class FSApi():
       return dbFile
 
 
-  def create_folder_recursive(self, folderpath: str, start_parent = ROOT_ID):
+  def create_folder_recursive(self, folderpath: str, start_parent = ROOT_ID, skip_last = False):
 
     path = self.split_path(folderpath)
+    if skip_last:
+      path.pop()
 
     parentFolder = getItem(start_parent)
+
+    is_created = False
 
     while( len(path) > 0 ):
       folderName = path[0]
@@ -143,8 +166,12 @@ class FSApi():
           parentfolder = parentFolder.id,
           filename = folderName
         ), parentFolder.id)
+        is_created = True
       
       parentFolder = destPath
+
+      if is_created:
+        Log.info(f"folder '{folderpath}' has been created!")
     
     return parentFolder
   

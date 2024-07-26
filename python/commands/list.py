@@ -25,6 +25,8 @@ class ListFS():
       start_folder = folder.id
     self.loop_folder(start_folder, Args.list_show_folders is not False, Args.list_show_files is not False)
 
+    Log.info('Completed!')
+
   
   def loop_folder(self, parent = ROOT_ID, show_folders = True, show_files = True):
 

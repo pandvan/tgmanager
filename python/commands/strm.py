@@ -5,7 +5,7 @@ from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
 import shutil
 
-Log = logging.getLogger("List")
+Log = logging.getLogger("Strm")
 
 class Strm():
 
@@ -32,6 +32,8 @@ class Strm():
 
 
     self.loop_folder(ROOT_ID, local_folder)
+
+    Log.info('Completed!')
   
 
   def loop_folder(self, parent_id, local_folder):

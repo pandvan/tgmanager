@@ -17,6 +17,7 @@ def NOW():
   return datetime.datetime.now(datetime.UTC)
 
 class TGFolder:
+
   def __init__(self, id = '', filename = '', channel = '', parentfolder = '', info = {}, state = 'ACTIVE', ctime = None, mtime = None):
     self.id = id
     self.filename = filename
@@ -30,6 +31,22 @@ class TGFolder:
 
     self.ctime = ctime or NOW()
     self.mtime = mtime or NOW()
+  
+  def toDB(self):
+
+    return {
+      'id': self.id,
+      'filename': self.filename,
+      'channel': self.channel,
+      'parts': None,
+      'parentfolder': self.parentfolder,
+      'type': 'folder',
+      'info': self.info,
+      'content': None,
+      'state': self.state,
+      'ctime': self.ctime,
+      'mtime': self.mtime
+    }
 
 class TGPart:
   def __init__(self, messageid: int = 0, originalfilename: str = '', fileid: str = '', size: int = 0, index: int = -1, hash: str | None = None):
@@ -39,6 +56,16 @@ class TGPart:
     self.size = size
     self.index = index
     self.hash = hash
+  
+  def toDB(self):
+    return {
+      'messageid': self.messageid,
+      'originalfilename': self.originalfilename,
+      'fileid': self.fileid,
+      'size': self.size,
+      'index': self.index,
+      'hash': self.hash
+    }
 
 type TGParts = list[TGPart]
 
@@ -59,6 +86,28 @@ class TGFile:
   
   def content_length(self):
     return len( self.content )
+
+  def toDB(self):
+
+    parts = None
+    if self.parts is not None:
+      parts = []
+      for part in self.parts:
+        parts.append( part.toDB() )
+
+    return {
+      'id': self.id,
+      'filename': self.filename,
+      'channel': self.channel,
+      'parts': parts,
+      'parentfolder': self.parentfolder,
+      'type': self.type,
+      'info': self.info,
+      'content': self.content,
+      'state': self.state,
+      'ctime': self.ctime,
+      'mtime': self.mtime
+    }
 
 def init_database():
   Log.info(f"init database")
@@ -214,7 +263,7 @@ def create_folder(folder: TGFolder, parent = None):
   if not folder.id:
     folder.id = get_UUID()
 
-  ret = DB.insert_one( vars(folder) )
+  ret = DB.insert_one( folder.toDB() )
 
   if folder.parentfolder:
     # update timestamps
@@ -245,7 +294,7 @@ def update_folder(folder: TGFolder, data: TGFolder, parent = None):
   folder.state = 'ACTIVE'
   folder.channel = data.channel or folder.channel
   
-  DB.update_one({id: folder.id}, {'$set': vars(folder)})
+  DB.update_one({'id': folder.id}, {'$set': folder.toDB()})
   return getItem(folder.id)
 
 
@@ -272,19 +321,19 @@ def create_file(file: TGFile, parent = None):
     if type( file.content ) is not bytes:
       file.content = base64.b64decode( file.content )
   
-  parts = None
-  _parts = file.parts
-  if _parts is not None:
-    parts = []
-    for p in _parts:
-      parts.append( vars(p) )
+  # parts = None
+  # _parts = file.parts
+  # if _parts is not None:
+  #   parts = []
+  #   for p in _parts:
+  #     parts.append( p.toDB() )
   
-  file.parts = parts
+  # file.parts = parts
     
   if not file.id:
     file.id = get_UUID()
     
-  ret = DB.insert_one( vars(file) )
+  ret = DB.insert_one( file.toDB() )
 
   if file.parentfolder:
     # update timestamps
@@ -306,7 +355,7 @@ def update_file(file: TGFile, data: TGFile, parent = None):
     raise Exception(f"Cannot update file without id")
 
 
-  insert = vars(file)
+  insert = file.toDB()
 
   fn = re.sub("/", "-", data.filename or file.filename, flags=re.IGNORECASE)
 
@@ -318,14 +367,14 @@ def update_file(file: TGFile, data: TGFile, parent = None):
 
   insert['mtime'] = NOW()
 
-  parts = None
-  _parts = data.parts or file.parts
-  if _parts is not None:
-    parts = []
-    for p in _parts:
-      parts.append( vars(p) )
+  # parts = None
+  # _parts = data.parts or file.parts
+  # if _parts is not None:
+  #   parts = []
+  #   for p in _parts:
+  #     parts.append( vars(p) )
 
-  insert['parts'] = parts
+  # insert['parts'] = parts
 
   if data.content:
     if type( data.content ) is not bytes:
