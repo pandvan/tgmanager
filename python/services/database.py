@@ -119,6 +119,8 @@ def init_database():
   global DB
   DB = database['entries']
 
+  Log.info('database is ready!')
+
   rootfolder = getItem( ROOT_ID )
   if rootfolder is None:
     # create folder

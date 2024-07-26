@@ -79,7 +79,7 @@ class Sync():
           service = await self.fsapi.create_file_with_content(destination_file_path)
 
           if service:
-            stat = os.stat(destination_file_path)
+            stat = os.stat(filename_full_path)
             Log.info(f"'{destination_file_path}' not exists, creating... ({stat.st_size} bytes)")
             f = open( filename_full_path, 'rb' )
             await service.execute(f)
