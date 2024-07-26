@@ -19,14 +19,13 @@ class Strm():
 
   def create(self, Args):
 
-    recreate_folder = Args.strm_re_create_folder
+    recreate_folder = Args.strm_clear_folder
     local_folder = Args.strm_folder
     self.url = Args.strm_url
     
 
-    if os.path.exists(local_folder):
-      if recreate_folder:
-        shutil.rmtree(local_folder)
+    if recreate_folder and os.path.exists(local_folder):
+      shutil.rmtree(local_folder)
     
     if not os.path.exists(local_folder):
       os.makedirs(local_folder)
@@ -62,7 +61,7 @@ class Strm():
     if ( file.content is not None and file.content_length() > 0 ):
 
       f = open( os.path.join(folderPath, file.filename), "wb")
-      f.write( file.content)
+      f.write( file.content )
       f.close()
 
     else:

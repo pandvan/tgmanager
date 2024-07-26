@@ -67,10 +67,22 @@ async def download_file(request: web.Request):
 
   await stream.prepare(request)
 
-  service = await FSApi.read_file_content(path, stream, start, end)
+  service = await FSApi.read_file_content(path, start, end)
 
   if service:
-    await service.execute( stream )
+    try:
+
+      await service.execute( stream, True )
+  
+    except ConnectionResetError:
+      service.stop()
+      Log.warn("connection aborted")
+    
+  
+  return web.Response(
+    status=422,
+    body="something went wrong"
+  )
 
 
 @routes.post(r"/folders/{fldid}/files/{filename}")
@@ -111,14 +123,18 @@ async def upload_file(request: web.Request):
       service = await FSApi.create_file_with_content(file_path)
 
       if service:
-        await service.execute(item.file)
+        try:
+          await service.execute(item.file)
       
-      return web.Response(
-        status=201,
-        body=f"File has been correctly created in '{parent.filename}'"
-      )
+          return web.Response(
+            status=201,
+            body=f"File has been correctly created in '{parent.filename}'"
+          )
+      
+        except ConnectionResetError:
+          service.stop()
+          Log.warn("connection aborted")
 
-      break
   
   return web.Response(
     status=422,

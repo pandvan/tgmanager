@@ -16,10 +16,12 @@ class Downloader():
   range_start = 0
   range_end = -1
   totalsize = 0
+  file = None
 
   def __init__(self, client: TelegramApi, file: TGFile, start: int, end: int):
     self.client = client
     self.channel_id = file.channel
+    self.file = file
     self.parts = file.parts
     self.range_start = start
     self.range_end = end
@@ -40,6 +42,22 @@ class Downloader():
 
     currentSizePosition = 0
     currentIndex = 0
+
+    if self.file and self.file.content is not None and self.file.content_length():
+      if awaited:
+        await destination.write( file.content )
+      else:
+        destination.write( file.content )
+      
+      try:
+        if awaited:
+          await destination.write_eof()
+        else:
+          destination.write_eof()
+      except Exception:
+        Log.warn(f"cannot write_eof")
+      
+      return
 
     # Calculate the full range stack to be downloaded
     while( True ):
@@ -89,7 +107,7 @@ class Downloader():
     
     try:
       await destination.write_eof()    
-    except Exception as e:
+    except Exception:
       Log.warn(f"cannot write_eof")
 
   

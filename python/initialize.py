@@ -96,7 +96,7 @@ parser.add_argument('--strm_folder',
                     help='folder to create files into'
                     )
 
-parser.add_argument('--strm_re_create_folder',
+parser.add_argument('--strm_clear_folder',
                     type = bool,
                     help='force to re-create strm folder',
                     action=argparse.BooleanOptionalAction

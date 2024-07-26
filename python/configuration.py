@@ -53,6 +53,13 @@ def load_config(args):
       "port": args.http_port or getYamlValue(yamlFile, ['http', 'port']),
       "user": args.http_user or getYamlValue(yamlFile, ['http', 'user']),
       "password": args.http_pass or getYamlValue(yamlFile, ['http', 'pass'])
+    },
+
+    "strm": {
+      "enabled": args.strm,
+      "url": args.strm_url or getYamlValue(yamlFile, ['strm', 'url']),
+      "folder": args.strm_folder or getYamlValue(yamlFile, ['strm', 'folder']),
+      "clear_folder": args.strm_clear_folder or getYamlValue(yamlFile, ['strm', 'clear_folder']),
     }
   })
 

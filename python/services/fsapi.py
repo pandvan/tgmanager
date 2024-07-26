@@ -304,7 +304,7 @@ class FSApi():
         oldFile.parentfolder = parentFolder.id
         create_file( oldFile, parentFolder.id)
 
-  async def read_file_content(self, path, stream, start = 0, end = -1):
+  async def read_file_content(self, path, start = 0, end = -1):
     paths = self.split_path(path)
     folder = await self.get_last_folder(path, True)
 
@@ -326,20 +326,6 @@ class FSApi():
 
     if end == -1:
       end = totalsize - 1
-
-    if file.content is not None:
-      if type( file.content ) is bytes:
-        await stream.write( file.content )
-      else:
-        await stream.write( base64.decodebytes(file.content) )
-      
-      # close stream
-      try:
-        await stream.write_eof()
-      except Exception as e:
-        Log.warn('cannot write_eof')
-      
-      return None
 
     client = TGClients.next_client()
 

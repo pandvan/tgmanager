@@ -1,4 +1,4 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, TEXT
 from configuration import Config
 from urllib.parse import urlparse
 from constants import ROOT_ID, ROOT_NAME
@@ -6,7 +6,6 @@ import re
 import base64
 import random
 import string
-from types import SimpleNamespace
 
 import logging
 
@@ -58,23 +57,10 @@ def init_database():
   dbname = urlparse(Config.db)
   database = mongo[ dbname.path[1:] ]
 
-  try:
-    database.create_collection('entries')
-  except Exception as e:
-    Log.warn(f"error occurred while create schema")
-    Log.warn(e)
-  
-  try:
-    database.create_collection('telegramdata')
-  except Exception as e:
-    Log.warn(f"error occurred while create schema")
-    Log.warn(e)
+  create_collection(database)
 
   global DB
   DB = database['entries']
-
-  global TGData
-  TGData = database['telegramdata']
 
   rootfolder = getItem( ROOT_ID )
   if rootfolder is None:
@@ -217,7 +203,6 @@ def create_folder(folder: TGFolder, parent = None):
 
 
 
-
 def update_folder(folder: TGFolder, data: TGFolder, parent = None):
     # check existing
   if check_exist(folder.filename, parent or folder.parentfolder, 'folder', data.id or folder.id):
@@ -341,18 +326,46 @@ def get_folder_by_channel(channelId: str):
   return res
 
 
-def get_telegram_data(key: str):
-  return TGData.findOne({ 'key': key })
-
-def set_telegram_data(data):
-
-  existing = get_telegram_data(data['key'])
-  if existing is not None:
-    TGData.update_one({'key': data['key']}, data)
-  else:
-    TGData.insert_one( data )
-  
-
 def get_UUID():
   alphabet = string.ascii_lowercase + string.digits
   return ''.join( random.choices(alphabet, k=10) )
+
+
+def create_collection(database):
+  try:
+
+    database.create_collection('entries', validator={
+      '$jsonSchema': {
+            'bsonType': 'object',
+            'additionalProperties': True,
+
+            'required': ['id', 'filename', 'type', 'state'],
+            'properties': {
+                'id': {
+                  'bsonType': 'string',
+                  'description': 'the unique custom ID'
+                },
+                'filename': {
+                  'bsonType': 'string',
+                  'description': 'the file or folder name'
+                },
+                'type': {
+                  'bsonType': 'string',
+                  'description': 'identify folder or mimetype'
+                },
+                'state': {
+                  'bsonType': 'string',
+                  'description': 'values: active, temp, deleted'
+                }
+            }
+        }
+    })
+    coll = database['entries']
+
+    coll.create_index(("id", TEXT), unique=True)
+    coll.create_index( ('filename', TEXT) )
+    coll.create_index( ('parentfolder', TEXT) )
+    
+  except Exception as e:
+    Log.warn(f"error occurred while create schema")
+    Log.warn(e)
