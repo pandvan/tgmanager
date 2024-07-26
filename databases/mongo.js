@@ -139,15 +139,17 @@ class MongoDB {
     if ( parent ) {
       filter.parentfolder = parent;
     }
-    filter.filename = new RegExp(`^${filename.replace(/\//gi, '-')}$`, 'i');
+
+    let fn = filename.replace(/\//gi, '-');
+    filter.filename = fn;
   
     if ( type ) {
       filter.type = type;
     }
   
     if (parent) {
-      const ret = await EntryM.findOne(filter);
-      return ret ? this.remap(ret) : null;
+      const ret = await EntryM.find(filter).collation( { locale: 'en', strength: 1 } );
+      return ret && ret[0] ? this.remap(ret[0]) : null;
     } else {
       const resp = await EntryM.find(filter);
       return (resp || []).map( i => this.remap(i));
