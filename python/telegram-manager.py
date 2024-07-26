@@ -25,13 +25,12 @@ async def start():
     await TGClients.add_client(user.id, user.api_id, user.api_hash, getattr(user, 'bot_token', None))
   
   TGClients.check()
-  
 
   if initialize.Args.list is True:
      
     from commands.list import ListFS
     listfs = ListFS()
-    listfs.listing(initialize.Args)
+    await listfs.listing(initialize.Args)
 
   elif initialize.Args.sync is True:
     # enable sync command

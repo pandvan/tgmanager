@@ -88,9 +88,9 @@ def remap(ret):
   if ret['type'] != 'folder':
     item = TGFile()
   
-  item.id = ret['id']
+  item.id = ret['id'] if 'id' in ret else None
   item.filename = ret['filename']
-  item.channel = ret['channel']
+  item.channel = ret['channel'] if 'channel' in ret else None
   parts = None
   if 'parts' in ret:
     if ret['parts'] is not None:
@@ -109,8 +109,8 @@ def remap(ret):
   item.parts = parts
   item.parentfolder = ret['parentfolder']
   item.type = ret['type']
-  item.info = ret['info']
-  item.content = ret['content']
+  item.info = ret['info'] if 'info' in ret else {}
+  item.content = ret['content'] if 'content' in ret else None
   item.state = ret['state']
   return item
 
@@ -120,7 +120,7 @@ def getItem(id):
   if ret is not None:
     return remap(ret)
 
-def getChildren(folderId, type = None):
+def getChildren(folderId, type = None, ordered = False):
   filter = {
     'parentfolder': folderId
   }
@@ -129,6 +129,9 @@ def getChildren(folderId, type = None):
     filter['type'] = type
 
   ret = DB.find(filter)
+
+  if ordered:
+    ret = ret.sort({'filename': 1})
 
   res = []
   for item in ret:

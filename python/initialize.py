@@ -72,8 +72,24 @@ parser.add_argument('--http_pass',
 
 parser.add_argument('--list',
                     type = bool,
-                    help='show all file and folders',
+                    help='listing entire tree folders and files',
                     action=argparse.BooleanOptionalAction
+                    )
+
+parser.add_argument('--list_show_files',
+                    type = bool,
+                    help='show files',
+                    action=argparse.BooleanOptionalAction
+                    )
+
+parser.add_argument('--list_show_folders',
+                    type = bool,
+                    help='show folders',
+                    action=argparse.BooleanOptionalAction
+                    )
+parser.add_argument('--list_start_folder',
+                    type = str,
+                    help='show folders'
                     )
 
 parser.add_argument('--sync',

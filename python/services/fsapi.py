@@ -36,7 +36,7 @@ class FSApi():
       p = p[1:]
     
     if p.endswith('/'):
-      p = p[0, -1]
+      p = p[0 : -1]
 
     # TODO: filter by Boolean
     return p.split('/')
