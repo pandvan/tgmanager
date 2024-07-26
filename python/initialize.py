@@ -26,7 +26,7 @@ parser.add_argument('--config',
 parser.add_argument('--data',
                     type=str,
                     nargs="?",
-                    help=f"data folder, default to {os.path.join( CWD, "data/")}")
+                    help=f"data folder, default to {os.path.join( CWD, 'data/')}")
 
 parser.add_argument('--database',
                     type=str,

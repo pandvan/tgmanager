@@ -67,10 +67,8 @@ class TGPart:
       'hash': self.hash
     }
 
-type TGParts = list[TGPart]
-
 class TGFile:
-  def __init__(self, id = '', filename = '', channel = '', parts: TGParts | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None):
+  def __init__(self, id = '', filename = '', channel = '', parts: list[TGPart] | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None):
     self.id = id
     self.filename = filename
     self.channel = channel
