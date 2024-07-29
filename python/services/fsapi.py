@@ -62,7 +62,7 @@ class FSApi():
       if state is not None:
         if item.state != state:
           return None
-    return item is not None
+    return item
 
   def get_last_folder(self, path: str, skipLast: bool = False):
     paths = self.split_path(path)
@@ -384,7 +384,7 @@ class FSApi():
       if (pf.id == ROOT_ID):
         break
       if (channelid):
-        Log.debug(f"found channelid {channelid}")
+        Log.debug(f"found channelid {channelid} for folder '{pf.filename}'")
       else:
         Log.debug(f"folder '{pf.filename}' has no channel, continue on parent folder -> {pf.parentfolder}")
       p = pf.parentfolder

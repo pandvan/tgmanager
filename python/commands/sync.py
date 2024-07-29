@@ -78,8 +78,8 @@ class Sync():
 
         Log.debug(f"looping file '{filename_full_path}' in '{destination_file_path}'")
 
-        exists = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
-        if not exists:
+        item = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
+        if item is None:
 
           ret.append( (filename_full_path, destination_file_path ) )
           
@@ -94,7 +94,7 @@ class Sync():
           #   await service.execute(f)
           #   f.close()
         else:
-          Log.debug(f"'{destination_file_path}' already exists")
+          Log.debug(f"'{destination_file_path}' already exists -> '{item.id}'")
         
     return ret
 
