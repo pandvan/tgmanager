@@ -107,10 +107,8 @@ class Sync():
     #   result.wait()
 
     # Log.info(result)
-    return await internal_task(file_list[0])
-
-def task(item):
-  return asyncio.run( internal_task(item) )
+    for file in file_list:
+      await internal_task(file)
 
 
 async def internal_task(item):
