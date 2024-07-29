@@ -42,7 +42,7 @@ class FSApi():
     return p.split('/')
   
 
-  def exists(self, path: str, parent_id: str = ROOT_ID):
+  def exists(self, path: str, parent_id: str = ROOT_ID, state = None):
     if parent_id == ROOT_ID:
       item = self.root_folder
     else:
@@ -57,7 +57,11 @@ class FSApi():
       item = getItemByFilename(childName, item_id)
       if ( item is None ):
         return None
-    
+
+    if item is not None:
+      if state is not None:
+        if item.state != state:
+          return None
     return item is not None
 
   def get_last_folder(self, path: str, skipLast: bool = False):
@@ -384,6 +388,8 @@ class FSApi():
     if ( not channelid ):
       Log.info('file will be uploaded into default channel')
       channelid = Config.telegram.upload.channel
+    else:
+      Log.info(f"file will be uploaded in channel: {channelid}")
 
     client = TGClients.next_client();
 
@@ -397,7 +403,7 @@ class FSApi():
       dbFile = update_file(dbFile, TGFile(
         filename = filename,
         channel = channelid,
-        type = mimetypes.guess_type(filename)[0],
+        type = mimetypes.guess_type(filename)[0] or 'application/octet-stream',
         parentfolder = folder.id
       ), folder.id)
     else:

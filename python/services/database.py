@@ -203,7 +203,6 @@ def getItemByFilename(filename: str, parent: str = None, type: str = None):
   if parent is not None: 
     filter['parentfolder'] = parent
   
-  # TODO: search ignorecase
   
   fn = re.sub("/", "-", filename) #, flags=re.IGNORECASE)
   filter['filename'] = fn

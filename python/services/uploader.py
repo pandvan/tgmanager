@@ -8,6 +8,7 @@ from utils import EventEmitter
 
 Log = logging.getLogger('Uploader')
 
+PART_1GB = 1 * 1024 * 1024 * 1024
 
 class Portion():
   def __init__(self, index = -1, file_id = None, current_part = -1, mime = 'application/octet-stream', filename = '', msg_id = 0, size = 0, content = None, ):
@@ -48,7 +49,7 @@ class Uploader(EventEmitter):
     self.client = client
     self.channel_id = channel_id or Config.telegram.upload.channel
     self.filename = filename
-  
+
 
   async def stop(self):
     self.aborted = True
@@ -183,6 +184,8 @@ class Uploader(EventEmitter):
             buffer
           )
           Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
+          if self.get_total_file_size() % PART_1GB == 0:
+            Log.info(f"uploaded {self.get_total_file_size()} bytes on telegram channel '{self.channel_id}'")
         except Exception as e:
           Log.error(f"error while upload part: {current_portion} - {e}")
           raise e

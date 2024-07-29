@@ -78,7 +78,7 @@ class Sync():
 
         Log.debug(f"looping file '{filename_full_path}' in '{destination_file_path}'")
 
-        exists = self.fsapi.exists(destination_file_path)
+        exists = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
         if not exists:
 
           ret.append( (filename_full_path, destination_file_path ) )
@@ -135,5 +135,5 @@ async def internal_task(item):
   except Exception as e:
     exists = fsapi.exists(destination_file_path)
     if exists:
-      fsapi.delete(destination_file_path)
+      await fsapi.delete(destination_file_path)
     Log.warn(f"Error: {e}")
