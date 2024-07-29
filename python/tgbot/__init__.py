@@ -9,7 +9,7 @@ from pyrogram.types import Message
 from pyrogram.handlers import MessageHandler
 from services.telegram import TelegramApi
 from services.tgclients import TGClients
-from services.database import TGPart, TGFile, get_file_by_message_id_and_channel, get_folder_by_channel, create_file
+from services.database import TGPart, TGFile, get_file_by_message_id_and_channel, get_folders_by_channel, create_file
 
 Log = logging.getLogger("BOT")
 
@@ -56,8 +56,6 @@ async def on_message(_, message: Message):
 
 
   channel_id = message.chat.id
-  if len(str(channel_id)) > 10:
-    channel_id = str(channel_id)[ 4: ]
 
   Log.info(f"got a file in channel {channel_id}")
 
@@ -69,15 +67,16 @@ async def on_message(_, message: Message):
 
     Log.debug(f"file '{media.file_name}' will be stored in DB")
 
-    folders = get_folder_by_channel(channel_id)
+    folders = get_folders_by_channel(channel_id)
     if len(folders) > 0:
       parentFolder = folders[0]
-      Log.info(f"file {media.file_name} will be stored in '{parentFolder.filename}'")
+      Log.info(f"file '{media.file_name}' will be stored in '{parentFolder.filename}'")
       parentFolder = parentFolder.id
     else:
-      Log.info(f"file {media.file_name} will be stored in root folder")
+      Log.info(f"file '{media.file_name}' will be stored in root folder")
       parentFolder = ROOT_ID
     
+    # use user account in order to retrieve correct file_ID
     client = TGClients.next_client(True)
 
     msg = await client.get_message(channel_id, message.id)

@@ -41,7 +41,7 @@ def load_config(args):
       },
       "bot_token": getYamlValue(yamlFile, ['telegram','bot_token'])
     },
-    "data": os.path.realpath( args.data or getYamlValue(yamlFile, ['data']) or os.path.join( CWD, 'data/') ),
+    "data": os.path.realpath( os.path.join( CWD, args.data or getYamlValue(yamlFile, ['data']) or './data/' ) ),
     
     "db": get_env('DB') or getYamlValue(yamlFile, ['db']),
     

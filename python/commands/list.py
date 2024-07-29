@@ -14,12 +14,12 @@ class ListFS():
     self.fsapi = FSApiLib( root )
      
 
-  async def listing(self, Args):
+  def listing(self, Args):
     start_folder = Args.list_start_folder
     if not start_folder:
       start_folder = ROOT_ID
     else:
-      folder = await self.fsapi.get_last_folder(start_folder)
+      folder = self.fsapi.get_last_folder(start_folder)
       if folder is None:
         raise Exception(f"folder '{start_folder}' not found")
       start_folder = folder.id

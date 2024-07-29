@@ -1,8 +1,10 @@
 import os
+import asyncio
 import logging
 from services.database import getItem, TGFolder
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
+from multiprocessing.pool import ThreadPool
 
 Log = logging.getLogger('SYNC')
 
@@ -35,14 +37,19 @@ class Sync():
     
     destination_folder = self.fsapi.create_folder_recursive(destination)
 
+    file_list = await self.loop_folder(source_path, destination_folder)
 
-    await self.loop_folder(source_path, destination_folder)
+    Log.info(f"found {len(file_list)} files to sync")
+
+    await self.proceed_to_sync( file_list )
 
     Log.info('Completed!')
 
 
   async def loop_folder(self, source_path: str, destination_folder: TGFolder):
-    Log.info(f"loop folder {source_path}")
+    Log.info(f"loop folder '{source_path}'")
+
+    ret = []
     for root, dirs, files in os.walk(source_path):
 
       # NO-needed: folders will be created while creating files
@@ -73,18 +80,60 @@ class Sync():
 
         exists = self.fsapi.exists(destination_file_path)
         if not exists:
+
+          ret.append( (filename_full_path, destination_file_path ) )
           
-          self.fsapi.create_folder_recursive(destination_file_path, skip_last = True)
+          # self.fsapi.create_folder_recursive(destination_file_path, skip_last = True)
 
-          service = await self.fsapi.create_file_with_content(destination_file_path)
+          # service = await self.fsapi.create_file_with_content(destination_file_path)
 
-          if service:
-            stat = os.stat(filename_full_path)
-            Log.info(f"'{destination_file_path}' not exists, creating... ({stat.st_size} bytes)")
-            f = open( filename_full_path, 'rb' )
-            await service.execute(f)
-            f.close()
+          # if service:
+          #   stat = os.stat(filename_full_path)
+          #   Log.info(f"'{destination_file_path}' not exists, creating... ({stat.st_size} bytes)")
+          #   f = open( filename_full_path, 'rb' )
+          #   await service.execute(f)
+          #   f.close()
         else:
           Log.debug(f"'{destination_file_path}' already exists")
+        
+    return ret
 
-    
+  
+  async def proceed_to_sync(self, file_list):
+
+    # with ThreadPool(1) as pool:
+    #   # call a function on each item in a list and handle results
+    #   result = pool.map( task, file_list)
+    #   result.wait()
+
+    # Log.info(result)
+    return await internal_task(file_list[0])
+
+def task(item):
+  return asyncio.run( internal_task(item) )
+
+
+async def internal_task(item):
+  destination_file_path = item[1]
+  filename_full_path = item[0]
+
+  root = getItem(ROOT_ID)
+  fsapi = FSApiLib( root )
+
+  try:
+
+    fsapi.create_folder_recursive(destination_file_path, skip_last = True)
+
+    service = await fsapi.create_file_with_content(destination_file_path)
+
+    if service:
+      stat = os.stat(filename_full_path)
+      Log.info(f"'{destination_file_path}' not exists, creating... ({stat.st_size} bytes)")
+      f = open( filename_full_path, 'rb' )
+      await service.execute(f)
+      f.close()
+  except Exception as e:
+    exists = fsapi.exists(destination_file_path)
+    if exists:
+      fsapi.delete(destination_file_path)
+    Log.warn(f"Error: {e}")

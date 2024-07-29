@@ -114,10 +114,13 @@ def init_database():
   dbname = urlparse(Config.db)
   database = mongo[ dbname.path[1:] ]
 
-  create_collection(database)
+  create_collections(database)
 
   global DB
   DB = database['entries']
+
+  global TGDB
+  TGDB = database['tgsessions']
 
   Log.info('database is ready!')
 
@@ -398,7 +401,7 @@ def get_file_by_message_id_and_channel(msgId: int, channel: str):
   if ret is not None:
     return remap(ret)
 
-def get_folder_by_channel(channelId: str):
+def get_folders_by_channel(channelId: str):
   filter = {
     'type': 'folder',
     'channel': channelId
@@ -410,12 +413,27 @@ def get_folder_by_channel(channelId: str):
   return res
 
 
+def save_tg_session(key, value):
+  already_exist = TGDB.find_one({'name': key})
+  if already_exist is not None:
+    TGDB.update_one({'name': key}, {'$set': {'name': key, 'value': value}})
+  else:
+    TGDB.insert_one({'name': key, 'value': value})
+
+def get_tg_session(key):
+  already_exist = TGDB.find_one({'name': key})
+  if already_exist is not None:
+    return already_exist['value']
+
+  return None
+
+
 def get_UUID():
   alphabet = string.ascii_lowercase + string.digits
   return ''.join( random.choices(alphabet, k=10) )
 
 
-def create_collection(database):
+def create_collections(database):
   try:
 
     database.create_collection('entries', validator={
@@ -451,5 +469,14 @@ def create_collection(database):
     coll.create_index( ('parentfolder', TEXT) )
     
   except Exception as e:
-    Log.warn(f"error occurred while create schema")
+    Log.warn(f"error occurred while create schema for entries")
+    Log.warn(e)
+  
+
+  try:
+
+    database.create_collection('tgsessions')
+    
+  except Exception as e:
+    Log.warn(f"error occurred while create schema for tgsessions")
     Log.warn(e)

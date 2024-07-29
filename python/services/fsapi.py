@@ -60,7 +60,7 @@ class FSApi():
     
     return item is not None
 
-  async def get_last_folder(self, path: str, skipLast: bool = False):
+  def get_last_folder(self, path: str, skipLast: bool = False):
     paths = self.split_path(path)
     if ( skipLast ):
       paths.pop()
@@ -78,7 +78,7 @@ class FSApi():
     return folder
 
   async def size(self, path: str):
-    file = await self.get_last_folder(path)
+    file = self.get_last_folder(path)
     size = 0
     if ( file is None ):
       raise Exception(f"'{path}' not found")
@@ -94,7 +94,7 @@ class FSApi():
     return size
 
   async def list_dir(self, path: str):
-    folder = await self.get_last_folder(path)
+    folder = self.get_last_folder(path)
 
     if folder is None:
       raise Exception(f"'{path}' not found")
@@ -104,7 +104,7 @@ class FSApi():
 
   async def create(self, path: str, isFolder: bool):
 
-    folder = await self.get_last_folder(path, True)
+    folder = self.get_last_folder(path, True)
 
     if ( folder is None ):
       Log.error(f"'{path}' not found")
@@ -180,7 +180,7 @@ class FSApi():
 
     pathsTo = self.split_path(pathTo)
 
-    oldFile = await self.get_last_folder(pathFrom)
+    oldFile = self.get_last_folder(pathFrom)
 
     if ( oldFile is None ):
       raise Exception(f"'${pathFrom}' not found")
@@ -261,7 +261,7 @@ class FSApi():
 
     pathsTo = self.split_path(pathTo)
 
-    oldFile = await self.get_last_folder(pathFrom)
+    oldFile = self.get_last_folder(pathFrom)
 
     if ( oldFile is None ):
       raise Exception(f"'${pathFrom}' not found")
@@ -333,7 +333,7 @@ class FSApi():
 
   async def read_file_content(self, path, start = 0, end = -1):
     paths = self.split_path(path)
-    folder = await self.get_last_folder(path, True)
+    folder = self.get_last_folder(path, True)
 
     if ( folder is None ):
       raise Exception(f"'${path}' parentFolder not found")
@@ -364,7 +364,7 @@ class FSApi():
 
   async def create_file_with_content(self, path: str, callback = None):
     paths = self.split_path(path)
-    folder = await self.get_last_folder(path, True)
+    folder = self.get_last_folder(path, True)
 
     if folder is None:
       raise Exception(f"'{path}' not found")
@@ -460,6 +460,74 @@ class FSApi():
     
     return uploader
 
+  async def delete(self, path, recursively = False):
 
+    paths = self.split_path(path)
+    folder = self.get_last_folder(path, True)
 
+    if ( not folder ):
+      raise Exception(f"'{path}' not found")
+    
+    filename = paths.pop()
+
+    item = await getItemByFilename(filename, folder.id);
+    if ( not item ):
+      raise Exception(f"'{filename}' not found under {folder.id}")
+    
+
+    Log.info(f"trying to delete '{item.filename}' [${item.id}], type: ${item.type}")
+
+    if (item.type == 'folder'):
+
+      if ( recursively ):
+        itemPath = FSApi.build_path( item )
+        children = await self.list_dir( itemPath )
+        children = children[1:]
+        for ch in children:
+          childPath = f"{itemPath}/{ch.filename}"
+          await self.delete(childPath, recursively)
+
+      itemdata = remap(item)
+      await removeItem(itemdata.id)
+      Log.info(f"folder '{itemdata.filename}' has been deleted, recursively: ${recursively}")
+
+    else:
+      data = remap(item)
+
+      if data.content and data.content_length():
+        # file is a local file in DB
+        await removeItem(data.id)
+        Log.info(f"file '{data.filename}' has been deleted")
+      else:
+        # file is located on telegram
+        parts = data.parts
+        if parts is not None:
+        
+          client = TGClients.next_client()
+
+          for part in parts:
+            mess = await client.getMessage(data.channel, part.messageid)
+            if ( mess and mess.media ):
+              media = mess.media
+              document = media
+              if part.fileid == document.id:
+                # ok, proceed to delete message
+                resp = await client.deleteMessage(data.channel, part.messageid)
+                if (resp.pts_count != 1):
+                  # callback(v2.Errors.InvalidOperation);
+                  raise Exception(f"Deleted more than 1 message")
+                
+              else:
+                Log.error(f"File mismatch: fileid {document.id} is different for message {mess.id}")
+                # callback(v2.Errors.InvalidOperation);
+                raise Exception(f"File mismatch: fileid '{document.id}' is different for message '{mess.id}'")
+              
+            else:
+              Log.error('cannot retrieve message from chat:', data.channel, 'part:', part.messageid)
+              # callback(v2.Errors.InvalidOperation);
+              raise Exception(f"cannot retrieve message from chat: {data.channel} part: {part.messageid}")
+
+          itemdata = remap(item)
+          await removeItem(itemdata.id)
+          Log.info(f"file '{itemdata.filename}' has been deleted, even from telegram")
 

@@ -175,13 +175,17 @@ class Uploader(EventEmitter):
         self.new_portion_file()
 
       if self.aborted is False:
-        res = await self.client.send_file_parts(
-          current_portion.file_id,
-          current_portion.current_part,
-          math.ceil( current_portion.size / UPLOAD_CHUNK ) if send_to_channel or last_chunk else -1,
-          buffer
-        )
-        Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
+        try:
+          res = await self.client.send_file_parts(
+            current_portion.file_id,
+            current_portion.current_part,
+            math.ceil( current_portion.size / UPLOAD_CHUNK ) if send_to_channel or last_chunk else -1,
+            buffer
+          )
+          Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
+        except Exception as e:
+          Log.error(f"error while upload part: {current_portion} - {e}")
+          raise e
 
 
     if send_to_channel or last_chunk:

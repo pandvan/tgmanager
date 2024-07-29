@@ -185,7 +185,7 @@ class MongoDB {
 
   async updateFolder(folder, data, parent) {
     // check existing
-    if ( await this.checkExist(data.filename, parent || data.parentfolder, 'folder', data.id || folder.id) ) {
+    if ( await this.checkExist(data.filename || folder.filename, parent || data.parentfolder, 'folder', data.id || folder.id) ) {
       throw `Folder '${data.filename}' already exists in '${parent}'`;
     }
   
@@ -199,7 +199,7 @@ class MongoDB {
   
       // force create a new folder
       folder.type = 'folder';
-      folder.filename = data.filename.replace(/\//gi, '-');
+      folder.filename = (data.filename || folder.filename).replace(/\//gi, '-');
       folder.parentfolder = parent || data.parentfolder || folder.parentfolder;
       folder.state = 'ACTIVE';
       folder.channel = 'channel' in data ? data.channel : folder.channel;

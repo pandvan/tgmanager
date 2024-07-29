@@ -10,12 +10,17 @@ class TGClients():
   current_client = -1
 
   @staticmethod
-  async def add_client(name: str, apiId: str, apiHash: str, bot = None):
-    client = TelegramApi(name, apiId, apiHash, bot)
+  async def add_client(name: str, apiId: str, apiHash: str, bot = None, session = None):
+    client = TelegramApi(name, apiId, apiHash, bot, session = session)
     await client.start()
     await client.get_me()
     Log.info(f"Login OK for user: {client.username}, is premium: {client.is_premium} and can upload {client.max_upload_parts} parts")
     Clients.append( client )
+
+
+  @staticmethod
+  def get_all_clients():
+    return Clients
   
   @staticmethod
   def check():

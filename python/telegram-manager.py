@@ -1,7 +1,7 @@
 import initialize
 from configuration import Config
 from constants import ROOT_ID
-from services.database import init_database, getItem
+from services.database import init_database, save_tg_session, get_tg_session
 from services.tgclients import TGClients
 from services.fsapi import FSApi
 from pyrogram import idle
@@ -22,7 +22,9 @@ async def start():
   init_database()
 
   for user in Config.telegram.users:
-    await TGClients.add_client(user.id, user.api_id, user.api_hash, getattr(user, 'bot_token', None))
+    session = get_tg_session(user.id)
+    Log.debug(f"got session from DB for user: {user.id} -> {session is not None}")
+    await TGClients.add_client(user.id, user.api_id, user.api_hash, getattr(user, 'bot_token', None), session)
   
   TGClients.check()
 
@@ -67,6 +69,16 @@ async def start():
     await idle()
 
 
+async def close():
+  Log.info('closing sessions')
+  # save sessions:
+  clients = TGClients.get_all_clients()
+  for client in clients:
+    session = await client.get_session()
+    Log.debug(f"save session for user {client._name}")
+    save_tg_session( client._name, session )
+
+
 loop = asyncio.get_event_loop()
 
 if __name__ == "__main__":
@@ -80,6 +92,9 @@ if __name__ == "__main__":
   finally:
       # loop.run_until_complete(cleanup())
       loop.stop()
+
+      loop.run_until_complete(close())
+
       logging.info("STOP")
 
 

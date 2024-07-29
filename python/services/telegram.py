@@ -23,7 +23,7 @@ class TelegramApi:
   is_premium = False
   max_upload_parts = 0
 
-  def __init__(self, name, api_id, api_hash, bot_token = None):
+  def __init__(self, name, api_id, api_hash, bot_token = None, session = None):
     self._name = name
 
     self.api_id = api_id
@@ -34,14 +34,18 @@ class TelegramApi:
       name = name,
       api_id = api_id,
       api_hash = api_hash,
-      workdir = Config.data,
+      session_string = session,
       bot_token = bot_token,
       no_updates = not bot_token,
+      in_memory = True,
       max_concurrent_transmissions = 5
     )
 
   async def start(self):
     await self.api.start()
+  
+  async def get_session(self):
+    return await self.api.export_session_string()
     
 
   async def get_me(self):
@@ -98,9 +102,6 @@ class TelegramApi:
 
 
   async def get_message(self, channel_id: int, mesgId: int):
-    if not str(channel_id).startswith('-100'):
-      channel_id = int(f"-100{channel_id}")
-      
     channel_id = int(channel_id)
     
     message = await self.api.get_messages(channel_id, mesgId)
@@ -138,9 +139,6 @@ class TelegramApi:
   async def move_file_to_chat(self, channel_id, file_id, total_parts, filename, mime):
     Log.info(f"send file to chat {channel_id}")
 
-    if not str(channel_id).startswith('-100'):
-      channel_id = int(f"-100{channel_id}")
-      
     channel_id = int(channel_id)
 
     peer = await self.api.resolve_peer( channel_id )
@@ -170,14 +168,8 @@ class TelegramApi:
   
   async def forward_message(self, channel_id_from, channel_id_to, msg_id):
 
-    if not str(channel_id_from).startswith('-100'):
-      channel_id_from = int(f"-100{channel_id_from}")
-      
     channel_id_from = int(channel_id_from)
   
-    if not str(channel_id_to).startswith('-100'):
-      channel_id_to = int(f"-100{channel_id_to}")
-      
     channel_id_to = int(channel_id_to)
 
     channel_from = await self.api.resolve_peer( channel_id_from )
@@ -196,9 +188,6 @@ class TelegramApi:
   
   async def delete_message(self, channel_id, msg_id):
 
-    if not str(channel_id).startswith('-100'):
-      channel_id = int(f"-100{channel_id}")
-      
     channel_id = int(channel_id)
 
     channel = await self.api.resolve_peer( channel_id )
