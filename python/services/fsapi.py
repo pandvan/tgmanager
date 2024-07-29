@@ -378,7 +378,7 @@ class FSApi():
     channelid = None
     Log.debug(f"calculate path and channel starting from '{folder.filename}'")
     p = folder.id
-    while ( channelid is None ):
+    while ( not channelid ):
       pf = getItem(p)
       channelid = pf.channel
       if (pf.id == ROOT_ID):
