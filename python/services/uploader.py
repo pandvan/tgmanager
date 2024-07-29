@@ -185,7 +185,7 @@ class Uploader(EventEmitter):
           )
           Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
           if self.get_total_file_size() % PART_TO_LOG == 0:
-            Log.info(f"uploaded {self.get_total_file_size()} bytes on telegram channel '{self.channel_id}'")
+            Log.info(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
         except Exception as e:
           Log.error(f"error while upload part: {current_portion} - {e}")
           raise e
@@ -210,8 +210,10 @@ class Uploader(EventEmitter):
     if self.temp_file_bytes is not None:
       # file is buffered into memory and needs to be directly inserted into db
       portion.content = self.temp_file_bytes
-      Log.info('saved content')
+      Log.info('save content into DB')
     else:
+
+      Log.debug(f"try to move part into channel {self.channel_id}, total parts: {math.ceil(portion.size / UPLOAD_CHUNK)} for file: '{filename}'")
 
       resp = await self.client.move_file_to_chat(
         self.channel_id, 
@@ -221,17 +223,23 @@ class Uploader(EventEmitter):
         portion.mime
       )
 
+      found_update = False
       for update in resp.updates:
         if getattr(update, 'message', None) is not None:
+          found_update = True
           portion.msg_id = update.message.id
           portion.file_id = update.message.media.document.id
+          Log.debug(f"got update for sent file: {portion.msg_id}, {portion.file_id}")
 
           for attr in update.message.media.document.attributes:
             if attr.QUALNAME == 'types.DocumentAttributeFilename':
               portion.filename = attr.file_name
+              Log.debug(f"tg-filename: {portion.filename}")
               break
           
           break
+      if not found_update:
+        Log.warn(f"Cannot retrieve data from updated-message")
       
     self.emit('portionUploaded', portion, self.channel_id)
 

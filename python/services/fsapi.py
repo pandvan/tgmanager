@@ -376,12 +376,17 @@ class FSApi():
     filename = paths.pop()
 
     channelid = None
+    Log.debug(f"calculate path and channel starting from '{folder.filename}'")
     p = folder.id
     while ( channelid is None ):
       pf = getItem(p)
       channelid = pf.channel
       if (pf.id == ROOT_ID):
         break
+      if (channelid):
+        Log.debug(f"found channelid {channelid}")
+      else:
+        Log.debug(f"folder '{pf.filename}' has no channel, continue on parent folder -> {pf.parentfolder}")
       p = pf.parentfolder
     
 

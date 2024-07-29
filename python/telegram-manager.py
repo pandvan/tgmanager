@@ -1,4 +1,5 @@
 import initialize
+import traceback
 from configuration import Config
 from constants import ROOT_ID
 from services.database import init_database, save_tg_session, get_tg_session
@@ -88,7 +89,8 @@ if __name__ == "__main__":
   except KeyboardInterrupt:
       pass
   except Exception as err:
-      logging.error(err.with_traceback(None))
+      traceback.print_exc()
+      logging.critical(err, exc_info=True)
   finally:
       # loop.run_until_complete(cleanup())
       loop.stop()
