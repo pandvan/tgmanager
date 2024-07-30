@@ -64,9 +64,6 @@ class TelegramApi:
     user_config = await self.api.invoke( fn_call )
     config = user_config.config
     value = config.value
-    # TODO: remove test line
-    self.max_upload_parts = 100
-    return
     for obj in value:
       if self.is_premium:
         if obj.key == 'upload_max_fileparts_premium':
