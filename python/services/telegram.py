@@ -159,10 +159,12 @@ class TelegramApi:
       force_file = True
     )
 
+    rand_id = TelegramApi.generate_id()
+    Log.debug(f"Generated ID for message: {rand_id} ")
     fn_call = raw.functions.messages.SendMedia(
       peer = peer,
       media = media,
-      random_id = int( TelegramApi.generate_id() ),
+      random_id = int( rand_id ),
       silent = True,
       message = ''
     )
@@ -170,6 +172,7 @@ class TelegramApi:
     return await self.api.invoke(fn_call)
   
   async def forward_message(self, channel_id_from, channel_id_to, msg_id):
+    Log.info(f"forward message between channel: {channel_id_from} -> {channel_id_to}")
 
     channel_id_from = int(channel_id_from)
   
@@ -178,13 +181,16 @@ class TelegramApi:
     channel_from = await self.api.resolve_peer( channel_id_from )
     channel_to = await self.api.resolve_peer( channel_id_to )
 
+    rand_id = TelegramApi.generate_id()
+    Log.debug(f"Generated ID  for ForwardMessages: {rand_id}")
+
     fn_call = raw.functions.messages.ForwardMessages(
       silent = True,
       drop_author = True,
       from_peer = channel_from,
       to_peer = channel_to,
       id = [msg_id],
-      random_id = [ TelegramApi.generate_id() ]
+      random_id = [ int( TelegramApi.generate_id() ) ]
     )
 
     return self.api.invoke( fn_call )

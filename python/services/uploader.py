@@ -146,17 +146,23 @@ class Uploader(EventEmitter):
 
           current_portion.current_part += 1
           
-          res = await self.client.send_file_parts(
-            current_portion.file_id,
-            current_portion.current_part,
-            -1,
-            chunk
-          )
-          # Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
-          if self.get_total_file_size() % PART_TO_LOG_DEBUG == 0:
-            Log.debug(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
-          if self.get_total_file_size() % PART_TO_LOG_INFO == 0:
-            Log.info(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
+          try:
+            res = await self.client.send_file_parts(
+              current_portion.file_id,
+              current_portion.current_part,
+              -1,
+              chunk
+            )
+            # Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
+            if self.get_total_file_size() % PART_TO_LOG_DEBUG == 0:
+              Log.debug(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
+            if self.get_total_file_size() % PART_TO_LOG_INFO == 0:
+              Log.info(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
+          except Exception as e:
+            Log.error(f"error while upload part: {current_portion} - {e}")
+            traceback.print_exc()
+            self.emit('error')
+            raise e
         # reset the in-memory buffer
         self.temp_file_bytes = None
       
@@ -251,6 +257,7 @@ class Uploader(EventEmitter):
         if not found_update:
           Log.warn(f"Cannot retrieve data from updated-message")
       except Exception as e:
+        Log.error(f"Error while moving part to channel: {portion}")
         Log.error(e, exc_info=True)
         traceback.print_exc()
         self.emit('error')
