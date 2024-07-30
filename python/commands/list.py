@@ -14,7 +14,7 @@ class ListFS():
     self.fsapi = FSApiLib( root )
      
 
-  def listing(self, Args):
+  async def listing(self, Args):
     start_folder = Args.list_start_folder
     if not start_folder:
       start_folder = ROOT_ID

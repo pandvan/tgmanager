@@ -90,7 +90,7 @@ if __name__ == "__main__":
       pass
   except Exception as err:
       traceback.print_exc()
-      logging.critical(err, exc_info=True)
+      logging.error(err, exc_info=True)
   finally:
       # loop.run_until_complete(cleanup())
       loop.stop()

@@ -421,10 +421,12 @@ class FSApi():
         state = 'TEMP'
       ), folder.id)
 
-      def on_stopped():
+      def on_stopped(*args):
+        Log.warn(f"Process aborted, remove item: {dbFile.id} - {dbFile.filename}")
         removeItem(dbFile.id)
 
       uploader.on('stopped', on_stopped)
+      uploader.on('error', on_stopped)
                   
 
     def on_complete_upload(*args):

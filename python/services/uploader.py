@@ -4,6 +4,7 @@ from constants import UPLOAD_CHUNK
 from .telegram import TelegramApi
 import mimetypes
 import math
+import traceback
 from utils import EventEmitter
 
 Log = logging.getLogger('Uploader')
@@ -105,7 +106,6 @@ class Uploader(EventEmitter):
           await self.send_to_channel(current_portion)
 
         if not self.aborted:
-          # TODO: emit
           self.emit('completeUpload', self.total_file_parts, self.channel_id)
         
         # loop completed
@@ -183,11 +183,13 @@ class Uploader(EventEmitter):
             math.ceil( current_portion.size / UPLOAD_CHUNK ) if send_to_channel or last_chunk else -1,
             buffer
           )
-          Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
+          # Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
           if self.get_total_file_size() % PART_TO_LOG == 0:
             Log.info(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
         except Exception as e:
           Log.error(f"error while upload part: {current_portion} - {e}")
+          traceback.print_exc()
+          self.emit('error')
           raise e
 
 
@@ -213,33 +215,40 @@ class Uploader(EventEmitter):
       Log.info('save content into DB')
     else:
 
-      Log.debug(f"try to move part into channel {self.channel_id}, total parts: {math.ceil(portion.size / UPLOAD_CHUNK)} for file: '{filename}'")
+      try:
 
-      resp = await self.client.move_file_to_chat(
-        self.channel_id, 
-        portion.file_id, 
-        math.ceil(portion.size / UPLOAD_CHUNK), 
-        filename,
-        portion.mime
-      )
+        Log.debug(f"try to move part into channel {self.channel_id}, total parts: {math.ceil(portion.size / UPLOAD_CHUNK)} for file: '{filename}'")
 
-      found_update = False
-      for update in resp.updates:
-        if getattr(update, 'message', None) is not None:
-          found_update = True
-          portion.msg_id = update.message.id
-          portion.file_id = update.message.media.document.id
-          Log.debug(f"got update for sent file: {portion.msg_id}, {portion.file_id}")
+        resp = await self.client.move_file_to_chat(
+          self.channel_id, 
+          portion.file_id, 
+          math.ceil(portion.size / UPLOAD_CHUNK), 
+          filename,
+          portion.mime
+        )
 
-          for attr in update.message.media.document.attributes:
-            if attr.QUALNAME == 'types.DocumentAttributeFilename':
-              portion.filename = attr.file_name
-              Log.debug(f"tg-filename: {portion.filename}")
-              break
-          
-          break
-      if not found_update:
-        Log.warn(f"Cannot retrieve data from updated-message")
+        found_update = False
+        for update in resp.updates:
+          if getattr(update, 'message', None) is not None:
+            found_update = True
+            portion.msg_id = update.message.id
+            portion.file_id = update.message.media.document.id
+            Log.debug(f"got update for sent file: {portion.msg_id}, {portion.file_id}")
+
+            for attr in update.message.media.document.attributes:
+              if attr.QUALNAME == 'types.DocumentAttributeFilename':
+                portion.filename = attr.file_name
+                Log.debug(f"tg-filename: {portion.filename}")
+                break
+            
+            break
+        if not found_update:
+          Log.warn(f"Cannot retrieve data from updated-message")
+      except Exception as e:
+        Log.error(e, exc_info=True)
+        traceback.print_exc()
+        self.emit('error')
+        raise e
       
     self.emit('portionUploaded', portion, self.channel_id)
 

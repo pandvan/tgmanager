@@ -169,7 +169,7 @@ class MongoDB {
       folder.filename = folder.filename.replace(/\//gi, '-');
       folder.parentfolder = parent || folder.parentfolder;
       folder.state = folder.state || 'ACTIVE';
-      folder.parts = [];
+      folder.parts = null;
       folder.content = null;
   
       let newFold = await EntryM.create( folder );
@@ -203,6 +203,8 @@ class MongoDB {
       folder.parentfolder = parent || data.parentfolder || folder.parentfolder;
       folder.state = 'ACTIVE';
       folder.channel = 'channel' in data ? data.channel : folder.channel;
+      folder.parts = null;
+      folder.content = null;
       
       let newFold = await EntryM.updateOne({id: folder.id}, folder);
 

@@ -1,5 +1,5 @@
 import os
-import asyncio
+import traceback
 import logging
 from services.database import getItem, TGFolder
 from constants import ROOT_ID
@@ -52,23 +52,6 @@ class Sync():
     ret = []
     for root, dirs, files in os.walk(source_path):
 
-      # NO-needed: folders will be created while creating files
-      
-      # for dirname in dirs:
-      #   # Log.info(f"in loop folder {source_path}, {root}, {dirname}, {destination_folder.filename}")
-
-      #   dirname_full_path = os.path.join(root, dirname)
-      #   dirname_destination_path = dirname_full_path[ len(source_path) : ]
-
-      #   exists = self.fsapi.exists(dirname_destination_path, destination_folder.id)
-      #   if not exists:
-      #     f = self.fsapi.create_folder_recursive(dirname_destination_path, destination_folder.id )
-
-      #     Log.info(f"folder created: '{f.id}' { FSApiLib.build_path(f) }")
-      #   else:
-      #     Log.debug(f"'{dirname_destination_path}' already exists")
-      
-
       for filename in files:
 
         filename_full_path = os.path.join(root, filename)
@@ -101,14 +84,12 @@ class Sync():
   
   async def proceed_to_sync(self, file_list):
 
-    # with ThreadPool(1) as pool:
-    #   # call a function on each item in a list and handle results
-    #   result = pool.map( task, file_list)
-    #   result.wait()
-
-    # Log.info(result)
     for file in file_list:
-      await internal_task(file)
+      try:
+        await internal_task(file)
+      except Exception as e:
+        traceback.print_exc()
+        Log.error(e, exc_info=True)
 
 
 async def internal_task(item):
