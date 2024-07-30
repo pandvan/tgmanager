@@ -35,6 +35,8 @@ class Sync():
     if not destination.startswith('/'):
       destination = f"/{destination}"
     
+    Log.info(f"Syncing folders from '{source_path}' to '{destination}'")
+    
     destination_folder = self.fsapi.create_folder_recursive(destination)
 
     file_list = await self.loop_folder(source_path, destination_folder)
@@ -56,6 +58,9 @@ class Sync():
 
         filename_full_path = os.path.join(root, filename)
         filename_destination_path = filename_full_path[ len(source_path) : ]
+
+        if filename_destination_path.startswith('/'):
+          filename_destination_path = filename_destination_path[1:]
 
         destination_file_path = os.path.join( FSApiLib.build_path(destination_folder), filename_destination_path )
 

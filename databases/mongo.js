@@ -99,7 +99,7 @@ class MongoDB {
 
   async getItem(id) {
     const ret = await EntryM.findOne({id});
-    return this.remap(ret);
+    return ret ? this.remap(ret) : null;
   }
 
   async getChildren(folderId, type) {

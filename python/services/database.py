@@ -159,7 +159,7 @@ def remap(ret):
         parts.append(part)
 
   item.parts = parts
-  item.parentfolder = ret['parentfolder']
+  item.parentfolder = ret['parentfolder'] if 'parentfolder' in ret else None
   item.type = ret['type']
   item.info = ret['info'] if 'info' in ret else {}
   item.content = ret['content'] if 'content' in ret else None
@@ -387,7 +387,7 @@ def update_file(file: TGFile, data: TGFile, parent = None):
 
   Log.debug(f"updating file into DB: {insert['id']} - {insert}")
   DB.update_one({'id': insert['id']}, { '$set': insert})
-  
+
   return getItem(insert['id'])
 
 
