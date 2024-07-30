@@ -57,7 +57,7 @@ class Sync():
         filename_full_path = os.path.join(root, filename)
         filename_destination_path = filename_full_path[ len(source_path) : ]
 
-        destination_file_path = FSApiLib.build_path(destination_folder) + filename_destination_path
+        destination_file_path = os.path.join( FSApiLib.build_path(destination_folder), filename_destination_path )
 
         Log.debug(f"looping file '{filename_full_path}' in '{destination_file_path}'")
 
