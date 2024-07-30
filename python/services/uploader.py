@@ -9,7 +9,8 @@ from utils import EventEmitter
 
 Log = logging.getLogger('Uploader')
 
-PART_TO_LOG = 50 * 1024 * 1024
+PART_TO_LOG_DEBUG = 100 * 1024 * 1024
+PART_TO_LOG_INFO = 500 * 1024 * 1024
 
 class Portion():
   def __init__(self, index = -1, file_id = None, current_part = -1, mime = 'application/octet-stream', filename = '', msg_id = 0, size = 0, content = None, ):
@@ -152,7 +153,9 @@ class Uploader(EventEmitter):
             chunk
           )
           # Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
-          if self.get_total_file_size() % PART_TO_LOG == 0:
+          if self.get_total_file_size() % PART_TO_LOG_DEBUG == 0:
+            Log.debug(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
+          if self.get_total_file_size() % PART_TO_LOG_INFO == 0:
             Log.info(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
         # reset the in-memory buffer
         self.temp_file_bytes = None
@@ -185,7 +188,9 @@ class Uploader(EventEmitter):
             buffer
           )
           # Log.debug(f"upload on telegram '{res}', part: {current_portion.current_part}, total bytes: {(current_portion.current_part + 1) * UPLOAD_CHUNK}")
-          if self.get_total_file_size() % PART_TO_LOG == 0:
+          if self.get_total_file_size() % PART_TO_LOG_DEBUG == 0:
+            Log.debug(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
+          if self.get_total_file_size() % PART_TO_LOG_INFO == 0:
             Log.info(f"uploaded {self.get_total_file_size()} bytes of '{self.filename}'")
         except Exception as e:
           Log.error(f"error while upload part: {current_portion} - {e}")
