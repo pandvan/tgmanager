@@ -430,13 +430,20 @@ class FSApi():
                   
 
     def on_complete_upload(*args):
+
+      newFileData = getItem(dbFile.id)
+      newFileData.state = 'ACTIVE'
+      update_file(dbFile, newFileData)
+
       if callback is not None:
         callback(dbFile)
       Log.info(f"File has been processed: [{dbFile.id}] '{dbFile.filename}'")
+
     uploader.on('completeUpload', on_complete_upload)
 
 
     def on_portion_upload(portion, *args):
+      Log.debug(f"Portion of file has been uploaded, save it into DB: {vars(portion)}")
 
       chl = channelid
 
@@ -460,7 +467,7 @@ class FSApi():
           index = portion.index
         ) )
 
-        newFileData.state = 'ACTIVE'
+        # newFileData.state = 'ACTIVE'
 
       update_file(dbFile, newFileData)
 

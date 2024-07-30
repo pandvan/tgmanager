@@ -79,8 +79,10 @@ class TelegramApi:
 
   @staticmethod
   def generate_id():
+    # fix: use 18 digits and add '1' in order to avoid "int too big to convert" exception
     numbers = string.digits
-    return int( ''.join( random.choices(numbers, k=19) ) )
+    num = int( ''.join( random.choices(numbers, k=18) ) )
+    return int( f"1{num}")
 
   @staticmethod
   def get_media_from_message(message):

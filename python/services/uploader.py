@@ -257,7 +257,7 @@ class Uploader(EventEmitter):
         if not found_update:
           Log.warn(f"Cannot retrieve data from updated-message")
       except Exception as e:
-        Log.error(f"Error while moving part to channel: {portion}")
+        Log.error(f"Error while moving part to channel: {vars(portion)}")
         Log.error(e, exc_info=True)
         traceback.print_exc()
         self.emit('error')

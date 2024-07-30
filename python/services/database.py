@@ -357,7 +357,8 @@ def update_file(file: TGFile, data: TGFile, parent = None):
     raise Exception(f"Cannot update file without id")
 
 
-  insert = file.toDB()
+  insert = data.toDB()
+  insert['id'] = file.id
 
   fn = re.sub("/", "-", data.filename or file.filename, flags=re.IGNORECASE)
 
@@ -384,7 +385,9 @@ def update_file(file: TGFile, data: TGFile, parent = None):
     else:
       insert['content'] = data.content
 
+  Log.debug(f"updating file into DB: {insert['id']} - {insert}")
   DB.update_one({'id': insert['id']}, { '$set': insert})
+  
   return getItem(insert['id'])
 
 
