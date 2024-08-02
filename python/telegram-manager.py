@@ -13,7 +13,7 @@ import logging
 Log = logging.getLogger("APP")
 
 for name, logger in logging.root.manager.loggerDict.items():
-  if name.startswith('pyrogram') or name.startswith('pymongo'):
+  if name.startswith('pyrogram') or name.startswith('pymongo') or name.startswith('aiohttp.access'):
     if isinstance(logger, logging.Logger):
       logger.setLevel(logging.WARNING)
 
@@ -61,6 +61,8 @@ async def start():
       server = web.AppRunner(web_server())
       await server.setup()
       await web.TCPSite(server, Config.http.host, Config.http.port).start()
+
+      Log.info(f"HTTP is running on {Config.http.host}:{Config.http.port}")
     
     if Config.telegram.bot_token:
       from tgbot import Bot

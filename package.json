@@ -18,6 +18,7 @@
     "@fortawesome/free-solid-svg-icons": "^6.5.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@mtproto/core": "^6.3.0",
+    "bootstrap": "^5.3.3",
     "dayjs": "^1.11.11",
     "express": "^5.0.0-beta.2",
     "express-basic-auth": "^1.2.1",
@@ -33,7 +34,8 @@
     "telegraf": "^4.16.3",
     "webdav-server": "^2.6.2",
     "yaml": "^2.4.5",
-    "yargs": "^17.7.2"
+    "yargs": "^17.7.2",
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@babel/core": "^7.16.5",

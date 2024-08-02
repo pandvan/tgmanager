@@ -1,7 +1,7 @@
 
 
 export async function getChildren(folderId) {
-  const rsp = await fetch(`/folder/${folderId}`);
+  const rsp = await fetch(`/folders/${folderId}` );
   return await rsp.json();
 }
 

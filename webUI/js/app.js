@@ -1,21 +1,19 @@
-import React from 'react';
-import Folder from './folder';
+import React, {useState, useCallback, useEffect} from 'react';
+import useAppState from './state';
+import Listing from './components/listing';
 
 
 export default function App() {
 
+  const setInitialNavigation = useAppState((state) => state.setInitialNavigation);
+  const root = {id: '0000000000', filename: ''};
+
+  setInitialNavigation([{id: '0000000000', filename: '', type: 'folder'}]);
+
   return (
-    <section className="table" >
-      <header className="table-row table-header">
-        <div className="table-col">
-          Name
-        </div>
-        <div className="table-col text-center">
-          Size
-        </div>
-      </header>
-      <Folder source='0000000000' showFolders={true} showFiles={true} />
-    </section>
+    <div className="container-fluid">
+      <Listing skipActions={false} />
+    </div>
   )
 
 }

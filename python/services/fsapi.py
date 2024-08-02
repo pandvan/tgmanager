@@ -39,7 +39,12 @@ class FSApi():
       p = p[0 : -1]
 
     # TODO: filter by Boolean
-    return p.split('/')
+    paths = p.split('/')
+    res = []
+    for p in paths:
+      if not p: continue
+      res.append(p)
+    return res
   
 
   def exists(self, path: str, parent_id: str = ROOT_ID, state = None):

@@ -16,37 +16,6 @@ Log = logging.getLogger('DB')
 def NOW():
   return datetime.datetime.now(datetime.UTC)
 
-class TGFolder:
-
-  def __init__(self, id = '', filename = '', channel = '', parentfolder = '', info = {}, state = 'ACTIVE', ctime = None, mtime = None):
-    self.id = id
-    self.filename = filename
-    self.channel = channel
-    self.parts = None
-    self.parentfolder = parentfolder
-    self.type = 'folder'
-    self.info = info
-    self.content = None
-    self.state = state or 'ACTIVE'
-
-    self.ctime = ctime or NOW()
-    self.mtime = mtime or NOW()
-  
-  def toDB(self):
-
-    return {
-      'id': self.id,
-      'filename': self.filename,
-      'channel': self.channel,
-      'parts': None,
-      'parentfolder': self.parentfolder,
-      'type': 'folder',
-      'info': self.info,
-      'content': None,
-      'state': self.state,
-      'ctime': self.ctime,
-      'mtime': self.mtime
-    }
 
 class TGPart:
   def __init__(self, messageid: int = 0, originalfilename: str = '', fileid: str = '', size: int = 0, index: int = -1, hash: str | None = None):
@@ -67,7 +36,9 @@ class TGPart:
       'hash': self.hash
     }
 
-class TGFile:
+
+class TGItem:
+
   def __init__(self, id = '', filename = '', channel = '', parts: list[TGPart] | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None):
     self.id = id
     self.filename = filename
@@ -83,9 +54,12 @@ class TGFile:
     self.mtime = mtime or NOW()
   
   def content_length(self):
-    return len( self.content )
-
-  def toDB(self):
+    if self.content is not None:
+      return len( self.content )
+    else:
+      return 0
+  
+  def toDB(self, for_web = False):
 
     parts = None
     if self.parts is not None:
@@ -93,7 +67,7 @@ class TGFile:
       for part in self.parts:
         parts.append( part.toDB() )
 
-    return {
+    data = {
       'id': self.id,
       'filename': self.filename,
       'channel': self.channel,
@@ -101,11 +75,48 @@ class TGFile:
       'parentfolder': self.parentfolder,
       'type': self.type,
       'info': self.info,
-      'content': self.content,
+      'content': self.content if not for_web else None,
       'state': self.state,
-      'ctime': self.ctime,
-      'mtime': self.mtime
+      'ctime': self.ctime if not for_web else self.ctime.timestamp(),
+      'mtime': self.mtime if not for_web else self.ctime.timestamp()
     }
+    if for_web:
+      data['content_length'] = self.content_length()
+    
+    return data
+
+class TGFolder(TGItem):
+
+  def __init__(self, id = '', filename = '', channel = '', parentfolder = '', info = {}, state = 'ACTIVE', ctime = None, mtime = None):
+    self.id = id
+    self.filename = filename
+    self.channel = channel
+    self.parts = None
+    self.parentfolder = parentfolder
+    self.type = 'folder'
+    self.info = info
+    self.content = None
+    self.state = state or 'ACTIVE'
+
+    self.ctime = ctime or NOW()
+    self.mtime = mtime or NOW()
+  
+
+class TGFile(TGItem):
+  def __init__(self, id = '', filename = '', channel = '', parts: list[TGPart] | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None):
+    self.id = id
+    self.filename = filename
+    self.channel = channel
+    self.parts = parts
+    self.parentfolder = parentfolder
+    self.type = type
+    self.info = info
+    self.content = content
+    self.state = state or 'ACTIVE'
+
+    self.ctime = ctime or NOW()
+    self.mtime = mtime or NOW()
+  
 
 def init_database():
   Log.info(f"init database")

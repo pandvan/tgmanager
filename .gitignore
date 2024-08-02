@@ -12,6 +12,8 @@ test.mkv
 create-fs.js
 parse-fs.js
 
+test/
+imported/
 test-*.*
 
 env/

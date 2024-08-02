@@ -31,7 +31,7 @@ module.exports = {
     }
   },
   output: {
-    path: `${__dirname}/public`,
+    path: `${__dirname}/python/public`,
     filename: "[name].dev.js",
     pathinfo: true,
     sourceMapFilename: "[file].js.map"
