@@ -179,7 +179,7 @@ class Uploader(EventEmitter):
 
     if should_upload:
       current_portion.current_part += 1
-      send_to_channel = current_portion.current_part == max_upload_parts
+      send_to_channel = current_portion.current_part == max_upload_parts - 1
 
       if ( send_to_channel ):
         # handle next portion of file
