@@ -147,6 +147,9 @@ def init_database():
 
 
 def remap(ret):
+  if type(ret) == TGFile or type(ret) == TGFolder:
+    return ret
+  
   item = TGFolder()
   if ret['type'] != 'folder':
     item = TGFile()

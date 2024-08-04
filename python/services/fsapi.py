@@ -495,12 +495,12 @@ class FSApi():
     
     filename = paths.pop()
 
-    item = await getItemByFilename(filename, folder.id);
+    item = getItemByFilename(filename, folder.id);
     if ( not item ):
       raise Exception(f"'{filename}' not found under {folder.id}")
     
 
-    Log.info(f"trying to delete '{item.filename}' [${item.id}], type: ${item.type}")
+    Log.info(f"trying to delete '{item.filename}' [{item.id}], type: {item.type}")
 
     if (item.type == 'folder'):
 
@@ -513,7 +513,7 @@ class FSApi():
           await self.delete(childPath, recursively)
 
       itemdata = remap(item)
-      await removeItem(itemdata.id)
+      removeItem(itemdata.id)
       Log.info(f"folder '{itemdata.filename}' has been deleted, recursively: ${recursively}")
 
     else:
@@ -521,7 +521,7 @@ class FSApi():
 
       if data.content and data.content_length():
         # file is a local file in DB
-        await removeItem(data.id)
+        removeItem(data.id)
         Log.info(f"file '{data.filename}' has been deleted")
       else:
         # file is located on telegram
@@ -552,7 +552,7 @@ class FSApi():
               # callback(v2.Errors.InvalidOperation);
               raise Exception(f"cannot retrieve message from chat: {data.channel} part: {part.messageid}")
 
-          itemdata = remap(item)
-          await removeItem(itemdata.id)
-          Log.info(f"file '{itemdata.filename}' has been deleted, even from telegram")
+        itemdata = remap(item)
+        removeItem(itemdata.id)
+        Log.info(f"file '{itemdata.filename}' has been deleted, even from telegram")
 
