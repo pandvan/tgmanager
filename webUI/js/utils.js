@@ -15,7 +15,7 @@ export async function getChildren(folderId) {
  * 
  * @return Formatted string.
  */
-export function humanFileSize(bytes, si=false, dp=1) {
+export function humanFileSize(bytes, si=false, dp=1, lower=false) {
   const thresh = si ? 1000 : 1024;
 
   if (Math.abs(bytes) < thresh) {
@@ -34,5 +34,26 @@ export function humanFileSize(bytes, si=false, dp=1) {
   } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
 
 
-  return bytes.toFixed(dp) + ' ' + units[u];
+  return bytes.toFixed(dp) + ' ' + ( lower ? units[u].toLowerCase() : units[u]);
+}
+
+export async function deleteFolder(id) {
+  const rsp = await fetch(`/folders/${id}`, {
+    method: 'DELETE'
+  });
+  if (rsp.status < 200 || rsp.status > 299) {
+    throw Error('response error');
+  }
+  return true;
+}
+
+
+export async function deleteFile(id) {
+  const rsp = await fetch(`/files/${id}`, {
+    method: 'DELETE'
+  });
+  if (rsp.status < 200 || rsp.status > 299) {
+    throw Error('response error');
+  }
+  return true;
 }

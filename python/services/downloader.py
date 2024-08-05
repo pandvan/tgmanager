@@ -5,6 +5,8 @@ import logging
 
 Log = logging.getLogger('Downloader')
 
+PART_TO_LOG_DEBUG = 100 * 1024 * 1024
+PART_TO_LOG_INFO = 500 * 1024 * 1024
 
 class Downloader():
   
@@ -121,6 +123,8 @@ class Downloader():
   
     needStop = False
 
+    total_file_downloaded = 0
+
     Log.debug(f"stream from {start} to {end}");
 
     while (True):
@@ -142,7 +146,15 @@ class Downloader():
         resp = await destination.write( buf )
       else:
         resp = destination.write( buf )
-      Log.debug(f"wrote {len(buf) == resp}, {len(buf)} bytes")
+      
+      total_file_downloaded += len(buf)
+
+      if total_file_downloaded % PART_TO_LOG_DEBUG == 0:
+        Log.debug(f"downloaded {total_file_downloaded} bytes of '{self.file.filename}'")
+      if total_file_downloaded % PART_TO_LOG_INFO == 0:
+        Log.info(f"downloaded {total_file_downloaded} bytes of '{self.file.filename}'")
+
+      #Log.debug(f"wrote {len(buf) == resp}, {len(buf)} bytes")
 
       offset += CHUNK
   

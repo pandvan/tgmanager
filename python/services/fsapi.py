@@ -2,7 +2,7 @@ import logging
 from services.database import TGFolder, TGFile, TGPart, getItem, removeItem, create_file, update_file, getItemByFilename, getChildren, create_folder, remap, update_folder
 from constants import ROOT_ID
 from configuration import Config
-import base64
+from services.telegram import TelegramApi
 import mimetypes
 from services.downloader import Downloader
 from services.tgclients import TGClients
@@ -256,7 +256,7 @@ class FSApi():
             resp = await client.delete_message(oldFileData.channel, part.messageid)
             if resp.pts_count != 1:
               # callback(v2.Errors.InvalidOperation);
-              raise Exception(f"More than one message has been deleted");
+              raise Exception(f"More than one message has been deleted")
 
 
       update_file(oldFileData, TGFile(
@@ -514,7 +514,7 @@ class FSApi():
 
       itemdata = remap(item)
       removeItem(itemdata.id)
-      Log.info(f"folder '{itemdata.filename}' has been deleted, recursively: ${recursively}")
+      Log.info(f"folder '{itemdata.filename}' has been deleted, recursively: {recursively}")
 
     else:
       data = remap(item)
@@ -531,26 +531,25 @@ class FSApi():
           client = TGClients.next_client()
 
           for part in parts:
-            mess = await client.getMessage(data.channel, part.messageid)
+            mess = await client.get_message(data.channel, part.messageid)
             if ( mess and mess.media ):
-              media = mess.media
+              media = TelegramApi.get_media_from_message(mess)
               document = media
-              if part.fileid == document.id:
+              if str(part.fileid) == str(document.filedata.media_id):
                 # ok, proceed to delete message
-                resp = await client.deleteMessage(data.channel, part.messageid)
+                resp = await client.delete_message(data.channel, part.messageid)
                 if (resp.pts_count != 1):
-                  # callback(v2.Errors.InvalidOperation);
                   raise Exception(f"Deleted more than 1 message")
                 
               else:
-                Log.error(f"File mismatch: fileid {document.id} is different for message {mess.id}")
+                Log.error(f"File mismatch: fileid '{document.id}' is different for message '{mess.id}'")
                 # callback(v2.Errors.InvalidOperation);
                 raise Exception(f"File mismatch: fileid '{document.id}' is different for message '{mess.id}'")
               
             else:
-              Log.error('cannot retrieve message from chat:', data.channel, 'part:', part.messageid)
-              # callback(v2.Errors.InvalidOperation);
-              raise Exception(f"cannot retrieve message from chat: {data.channel} part: {part.messageid}")
+              Log.error(f"cannot retrieve message from chat {data.channel} part: '{part.messageid}' for file '{data.filename}'")
+              # Silently fails
+              #raise Exception(f"cannot retrieve message from chat: {data.channel} part: {part.messageid}")
 
         itemdata = remap(item)
         removeItem(itemdata.id)

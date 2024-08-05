@@ -108,7 +108,7 @@ class TelegramApi:
     
     message = await self.api.get_messages(channel_id, mesgId)
     if message.empty:
-      raise Exception(f"cannot find message {mesgId} in channel {channel_id}")
+      return None
   
     return message
 
@@ -192,7 +192,7 @@ class TelegramApi:
       random_id = [ int( TelegramApi.generate_id() ) ]
     )
 
-    return self.api.invoke( fn_call )
+    return await self.api.invoke( fn_call )
   
   async def delete_message(self, channel_id, msg_id):
 
@@ -204,4 +204,4 @@ class TelegramApi:
       channel = channel,
       id = [msg_id]
     )
-    return self.api.invoke( fn_call )
+    return await self.api.invoke( fn_call )

@@ -242,7 +242,7 @@ async def delete_folder(request: web.Request):
     )
   
 
-  path = await FSApiLib.build_path(folder);
+  path = FSApiLib.build_path(folder);
 
   try:
 
@@ -256,12 +256,12 @@ async def delete_folder(request: web.Request):
   except Exception as e:
     Log.error(e)
     return web.Response(
-      status=204,
-      body=f"error occurs"
+      status=422,
+      body=f"{e}"
     )
 
 
-@routes.post(r"/files/{file_id}")
+@routes.delete(r"/files/{file_id}")
 async def delete_file(request: web.Request):
   file_id = request.match_info["file_id"]
 
@@ -285,7 +285,7 @@ async def delete_file(request: web.Request):
     )
 
   try:
-    path = await FSApiLib.build_path(dbFile)
+    path = FSApiLib.build_path(dbFile)
 
     await FSApi.delete(path)
 
@@ -298,6 +298,6 @@ async def delete_file(request: web.Request):
     Log.error(e)
     return web.Response(
       status=422,
-      body=f"error occurs"
+      body=f"{e}"
     )
 

@@ -5,11 +5,14 @@ import {Folder} from './folder';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCopy, faObjectGroup, faPen, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { faRightLeft } from '@fortawesome/free-solid-svg-icons/faRightLeft';
+import { OverlayDelete } from './overlay';
 
 export default function Listing(props) {
   const navigation = useAppState((state) => state.navigation);
   const navigate = useAppState((state) => state.navigateFolder);
   const selectedItems = useAppState((state) => state.selectedItems);
+
+  const [ showOverlayDelete, setShowOverlayDelete] = useState(false);
 
   const {skipActions} = props;
   const [currentFolder, setCurrentFolder] = useState(null);
@@ -28,7 +31,27 @@ export default function Listing(props) {
   const showMergeAction = useMemo(() => {
     const folderSelected = selectedItems.find(i => i.type == 'folder');
     return showActions && !folderSelected;
-  }, [showActions, selectedItems])
+  }, [showActions, selectedItems]);
+
+  const reloadFolder = useCallback( () => {
+    const cf = currentFolder;
+    setCurrentFolder(null);
+    setTimeout(() => {
+      setCurrentFolder(cf)
+    }, 100);
+  }, [currentFolder]);
+
+  const onAfterDelete = useCallback((err, operationConfirmed) => {
+    if ( operationConfirmed ) {
+      if ( !err ) {
+        alert('Operation completed');
+      } else {
+        alert('Operation completed with error');
+      }
+      reloadFolder();
+    }
+    setShowOverlayDelete(false);
+  }, [reloadFolder, setShowOverlayDelete]);
 
   return (
     <div className="row">
@@ -44,7 +67,7 @@ export default function Listing(props) {
                 <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" /></div>
                 <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" /></div>
                 {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" /></div>}
-                <div className="col text-center" ><FontAwesomeIcon icon={faTrash} className="clickable-item" /></div>
+                <div className="col text-center" ><FontAwesomeIcon icon={faTrash} className="clickable-item" onClick={() => setShowOverlayDelete(true)} /></div>
               </div>
             </div> 
           )}
@@ -55,6 +78,7 @@ export default function Listing(props) {
           </div>
         </div>
       </div>
+      {showOverlayDelete && <OverlayDelete items={selectedItems} onClose={onAfterDelete} />}
     </div>
   )
 

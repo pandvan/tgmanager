@@ -29,6 +29,7 @@
     "mongoose": "^8.5.1",
     "multiparty": "^4.2.3",
     "pug": "2.0.4",
+    "react-bootstrap": "^2.10.4",
     "realm": "^12.9.0",
     "short-unique-id": "^5.2.0",
     "telegraf": "^4.16.3",
