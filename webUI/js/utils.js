@@ -57,3 +57,14 @@ export async function deleteFile(id) {
   }
   return true;
 }
+
+export async function mergeFiles(items) {
+  const first = items.splice(0, 1)[0];
+  const rsp = await fetch(`/files/${first.id}/merge?part_ids=${items.map(i => i.id).join(',')}`, {
+    method: 'put'
+  });
+  if (rsp.status < 200 || rsp.status > 299) {
+    throw Error('response error');
+  }
+  return true;
+}

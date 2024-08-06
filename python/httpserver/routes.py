@@ -1,6 +1,6 @@
 import os
 from aiohttp import web
-from services.database import TGFile, getItem, getItemByFilename
+from services.database import TGFile, getItem, getItemByFilename, update_file, removeItem
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
 from configuration import CWD
@@ -300,4 +300,75 @@ async def delete_file(request: web.Request):
       status=422,
       body=f"{e}"
     )
+
+
+
+
+
+@routes.put(r"/files/{file_id}/merge")
+async def merge_file(request: web.Request):
+
+  file_id = request.match_info["file_id"]
+
+  Log.info(f"file to be merge into is: {file_id}")
+
+  dbFile = getItem(file_id)
+
+  if dbFile is None:
+    Log.info(f"item not found in db {file_id}")
+    return web.Response(
+      status=404,
+      body=f"file not exists with the id {file_id}"
+    )
+
+
+  if dbFile.type == 'folder':
+    Log.error(f"requested item is a folder {dbFile.id}")
+    return web.Response(
+      status=422,
+      body=f"requested item is not a file"
+    )
+
+  if dbFile.content is not None and dbFile.parts is None:
+    Log.error(f"cannot merge local DB")
+    return web.Response(
+      status=422,
+      body=f"cannot merge local DB file"
+    )
+
+  part_ids = request.rel_url.query.get('part_ids', '')
+
+  if not part_ids:
+    Log.error(f"invalid part ids {part_ids}")
+    return web.Response(
+      status=422,
+      body=f"invalid part ids {part_ids}"
+    )
+  
+  part_ids = part_ids.split(',')
+
+  for part_id in part_ids:
+    dbPart = getItem(part_id)
+    if ( not dbPart ):
+      Log.error(f"Part not exists in db '{part_id}'")
+      return web.Response(
+        status=422,
+        body=f"Part not exists in db '{part_id}'"
+      )
+    dbFile.parts = dbFile.parts + dbPart.parts
+
+    update_file(dbFile, dbFile)
+
+    removeItem(dbPart.id)
+  
+  # update parts indexes
+  index = 0
+  for part in dbFile.parts:
+    part.index = index
+    index += 1
+  
+  Log.info(f"corectly merge parts: '{dbFile.id}' -> '{part_ids}")
+  
+  return web.json_response( dbFile.toDB(True) )
+
 
