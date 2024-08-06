@@ -87,7 +87,7 @@ class TGItem:
 
 class TGFolder(TGItem):
 
-  def __init__(self, id = '', filename = '', channel = '', parentfolder = '', info = {}, state = 'ACTIVE', ctime = None, mtime = None):
+  def __init__(self, id = '', filename = '', channel = None, parentfolder = '', info = {}, state = 'ACTIVE', ctime = None, mtime = None):
     self.id = id
     self.filename = filename
     self.channel = channel
@@ -302,13 +302,15 @@ def update_folder(folder: TGFolder, data: TGFolder, parent = None):
     raise Exception(f"Cannot update folder without id")
 
   # const oldFold = this.remap(folder);
-  fn = re.sub("/", "-", folder.filename, flags=re.IGNORECASE)
+  fn = re.sub("/", "-", data.filename, flags=re.IGNORECASE)
 
   folder.type = 'folder'
   folder.filename = fn
   folder.parentfolder = parent or data.parentfolder or folder.parentfolder
   folder.state = 'ACTIVE'
-  folder.channel = data.channel or folder.channel
+
+  # we can modify relative channel for this folder
+  folder.channel = data.channel if data.channel is not None else folder.channel
   
   DB.update_one({'id': folder.id}, {'$set': folder.toDB()})
   return getItem(folder.id)

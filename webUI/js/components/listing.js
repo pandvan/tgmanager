@@ -76,7 +76,6 @@ export default function Listing(props) {
           {showActions && (
             <div className="col-3 text-end" >
               <div className="row">
-                <div className="col text-center" ><FontAwesomeIcon icon={faPen} className="clickable-item" /></div>
                 <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" /></div>
                 <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" /></div>
                 {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" onClick={() => setShowOverlayMerge(true)}  /></div>}

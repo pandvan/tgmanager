@@ -5,7 +5,7 @@ import { faPen, faTrashCan, faFolderClosed, faCopy, faRightLeft, faTrash, faDown
 import { faFile } from '@fortawesome/free-regular-svg-icons'
 import useAppState from '../state';
 import { Badge } from 'react-bootstrap';
-import { OverlayDelete } from './overlay';
+import { OverlayDelete, OverlayRename } from './overlay';
 
 
 
@@ -16,6 +16,7 @@ export function Item(props) {
     onSingleClick, 
     isHighlighted,
     onDownload,
+    onEdit,
     onDelete
   } = props;
 
@@ -67,7 +68,7 @@ export function Item(props) {
         <div className="row">
           <div className="col text-center" >
             {item.type != 'folder' && <FontAwesomeIcon icon={faDownload} className="clickable-item ms-2" onClick={() => onDownload(item)} />}
-            <FontAwesomeIcon icon={faPen} className="clickable-item ms-2" />
+            <FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit(item)} />
             <FontAwesomeIcon icon={faCopy} className="clickable-item ms-2" />
             <FontAwesomeIcon icon={faRightLeft} className="clickable-item ms-2" />
             <FontAwesomeIcon icon={faTrash} className="clickable-item ms-2" onClick={() => onDelete(item)}/>
@@ -85,7 +86,8 @@ export function Folder(props) {
   const [items, setItems] = useState([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
 
-  const [itemToDelete, setItemToDelete] = useState(null)
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [itemToModify, setItemToModify] = useState(null);
 
   const navigateFolder = useAppState((state) => state.navigateFolder);
   const selectedItems = useAppState((state) => state.selectedItems);
@@ -166,6 +168,10 @@ export function Folder(props) {
 
   }, []);
 
+  const onEdit = useCallback( (item) => {
+    setItemToModify(item);
+  }, []);
+
   const onDelete = useCallback((item) => {
     setItemToDelete(item);
   }, []);
@@ -182,6 +188,11 @@ export function Folder(props) {
     setItemToDelete(null);
   }, [reloadFolder]);
 
+  const onAfterEdit = useCallback((item) => {
+    setItemToModify(null);
+    reloadFolder()
+  }, [itemToModify, reloadFolder])
+
   return (
     <>
       {loading && (<h5>loading</h5>)}
@@ -195,6 +206,7 @@ export function Folder(props) {
                 onSingleClick={onSingleClick} 
                 isHighlighted={isSelected(item)} 
                 onDownload={onDownload}
+                onEdit={onEdit}
                 onDelete={onDelete}
               />
             )
@@ -202,6 +214,7 @@ export function Folder(props) {
         })
       }
       {!!itemToDelete && <OverlayDelete items={[itemToDelete]} onClose={onAfterDelete} />}
+      {!!itemToModify && <OverlayRename item={itemToModify} onClose={onAfterEdit} />}
     </>
   );
 }

@@ -1,6 +1,6 @@
 import os
 from aiohttp import web
-from services.database import TGFile, getItem, getItemByFilename, update_file, removeItem
+from services.database import TGFile, TGFolder, getItem, getItemByFilename, update_file, removeItem, update_folder
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
 from configuration import CWD
@@ -372,3 +372,43 @@ async def merge_file(request: web.Request):
   return web.json_response( dbFile.toDB(True) )
 
 
+@routes.put(r"/folders/{fld_id}")
+async def modify_folder(request: web.Request):
+  fld_id = request.match_info["fld_id"]
+
+  if not fld_id:
+    Log.error(f"invalid folder id")
+    return web.Response(
+      status=400,
+      body=f"invalid folder id"
+    )
+
+  folder = getItem(fld_id)
+  if not folder or folder.type != 'folder':
+    Log.error(f"invalid folder id")
+    return web.Response(
+      status=422,
+      body=f"requested item is not a folder"
+    )
+
+  data = await request.json()
+
+  parentId = folder.parentfolder
+
+  if 'parentfolder' in data and data['parentfolder']:
+    parentId = data['parentfolder']
+    parent = getItem(parentId)
+    if parent is None or parent.type != 'folder':
+      return web.Response(
+        status=422,
+        body=f"invalid parent folder {parentId}"
+      )
+
+  newData = TGFolder(
+    filename = data['filename'] if 'filename' in data and data['filename'] else folder.filename,
+    channel = data['channel'] if 'channel' in data else folder.channel,
+    parentfolder = parentId
+  )
+
+  newFolderData = update_folder(folder, newData)
+  return web.json_response( newFolderData.toDB(True) )

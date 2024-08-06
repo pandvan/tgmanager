@@ -68,3 +68,25 @@ export async function mergeFiles(items) {
   }
   return true;
 }
+
+export async function modifyFolder(folder, data) {
+  const rsp = await fetch(`/folders/${folder.id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+  if (rsp.status < 200 || rsp.status > 299) {
+    throw Error('response error');
+  }
+  return true;
+}
+
+export async function modifyFile(file, data) {
+  const rsp = await fetch(`/files/${file.id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+  if (rsp.status < 200 || rsp.status > 299) {
+    throw Error('response error');
+  }
+  return true;
+}
