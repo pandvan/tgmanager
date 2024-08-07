@@ -303,8 +303,6 @@ async def delete_file(request: web.Request):
 
 
 
-
-
 @routes.put(r"/files/{file_id}/merge")
 async def merge_file(request: web.Request):
 
@@ -393,22 +391,45 @@ async def modify_folder(request: web.Request):
 
   data = await request.json()
 
-  parentId = folder.parentfolder
-
-  if 'parentfolder' in data and data['parentfolder']:
-    parentId = data['parentfolder']
-    parent = getItem(parentId)
-    if parent is None or parent.type != 'folder':
-      return web.Response(
-        status=422,
-        body=f"invalid parent folder {parentId}"
-      )
-
   newData = TGFolder(
     filename = data['filename'] if 'filename' in data and data['filename'] else folder.filename,
-    channel = data['channel'] if 'channel' in data else folder.channel,
-    parentfolder = parentId
+    channel = data['channel'] if 'channel' in data else folder.channel
   )
 
   newFolderData = update_folder(folder, newData)
+  return web.json_response( newFolderData.toDB(True) )
+
+
+@routes.put(r"/files/{file_id}")
+async def modify_file(request: web.Request):
+  file_id = request.match_info["file_id"]
+
+  Log.info(f"file to be merge into is: {file_id}")
+
+  dbFile = getItem(file_id)
+
+  if dbFile is None:
+    Log.info(f"item not found in db {file_id}")
+    return web.Response(
+      status=404,
+      body=f"file not exists with the id {file_id}"
+    )
+
+
+  if dbFile.type == 'folder':
+    Log.error(f"requested item is a folder {dbFile.id}")
+    return web.Response(
+      status=422,
+      body=f"requested item is not a file"
+    )
+
+  data = await request.json()
+
+
+  newData = TGFile(
+    filename = data['filename'] if 'filename' in data and data['filename'] else dbFile.filename,
+    type = data['type'] if 'type' in data else dbFile.type
+  )
+
+  newFolderData = update_file(dbFile, newData)
   return web.json_response( newFolderData.toDB(True) )

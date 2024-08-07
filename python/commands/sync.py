@@ -29,8 +29,8 @@ class Sync():
       raise Exception(f"Invalid source folder: '{Args.source}'")
   
 
-    source_path = Args.source
-    destination = Args.destination
+    source_path = Args.sync_source
+    destination = Args.sync_destination
 
     if not destination.startswith('/'):
       destination = f"/{destination}"

@@ -15,9 +15,9 @@ export function Item(props) {
     onDoubleClick, 
     onSingleClick, 
     isHighlighted,
-    onDownload,
-    onEdit,
-    onDelete
+    onDownload
+    // onEdit,
+    // onDelete
   } = props;
 
   const iconType = useMemo(() => (item.type || '').split('/')[0], [item]);
@@ -68,10 +68,10 @@ export function Item(props) {
         <div className="row">
           <div className="col text-center" >
             {item.type != 'folder' && <FontAwesomeIcon icon={faDownload} className="clickable-item ms-2" onClick={() => onDownload(item)} />}
-            <FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit(item)} />
+            {/* <FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit(item)} />
             <FontAwesomeIcon icon={faCopy} className="clickable-item ms-2" />
             <FontAwesomeIcon icon={faRightLeft} className="clickable-item ms-2" />
-            <FontAwesomeIcon icon={faTrash} className="clickable-item ms-2" onClick={() => onDelete(item)}/>
+            <FontAwesomeIcon icon={faTrash} className="clickable-item ms-2" onClick={() => onDelete(item)}/> */}
           </div>
         </div>
       </div>
@@ -81,13 +81,10 @@ export function Item(props) {
 
 export function Folder(props) {
 
-  const {source, depth, showFolders, showFiles} = props;
+  const {source, showFolders, showFiles} = props;
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
-
-  const [itemToDelete, setItemToDelete] = useState(null);
-  const [itemToModify, setItemToModify] = useState(null);
 
   const navigateFolder = useAppState((state) => state.navigateFolder);
   const selectedItems = useAppState((state) => state.selectedItems);
@@ -102,10 +99,9 @@ export function Folder(props) {
     const files = items.filter( i => i.type !== 'folder').sort( (f1, f2) => f1.filename > f2.filename ? 1 : -1 );
     setItems( folders.concat( files ) );
     setLastSelectedIndex(-1);
-    setItemToDelete(null);
     setLoading(false);
     clearSelectedItems();
-  }, [source, setLastSelectedIndex,    setItemToDelete,    setLoading,    clearSelectedItems]);
+  }, [source, setLastSelectedIndex, setLoading, clearSelectedItems]);
 
   useEffect(() => {
     reloadFolder();
@@ -149,7 +145,6 @@ export function Folder(props) {
     addSelectedItem(item);
   }, [selectedItems, items, isSelected, lastSelectedIndex]);
 
-
   const onDownload = useCallback( (item) => {
 
     const resp = confirm(`Download '${item.filename}'?`);
@@ -168,31 +163,6 @@ export function Folder(props) {
 
   }, []);
 
-  const onEdit = useCallback( (item) => {
-    setItemToModify(item);
-  }, []);
-
-  const onDelete = useCallback((item) => {
-    setItemToDelete(item);
-  }, []);
-
-  const onAfterDelete = useCallback((err, operationConfirmed) => {
-    if ( operationConfirmed ) {
-      if ( !err ) {
-        alert('Operation completed');
-      } else {
-        alert('Operation completed with error');
-      }
-      reloadFolder();
-    }
-    setItemToDelete(null);
-  }, [reloadFolder]);
-
-  const onAfterEdit = useCallback((item) => {
-    setItemToModify(null);
-    reloadFolder()
-  }, [itemToModify, reloadFolder])
-
   return (
     <>
       {loading && (<h5>loading</h5>)}
@@ -206,15 +176,11 @@ export function Folder(props) {
                 onSingleClick={onSingleClick} 
                 isHighlighted={isSelected(item)} 
                 onDownload={onDownload}
-                onEdit={onEdit}
-                onDelete={onDelete}
               />
             )
           }
         })
       }
-      {!!itemToDelete && <OverlayDelete items={[itemToDelete]} onClose={onAfterDelete} />}
-      {!!itemToModify && <OverlayRename item={itemToModify} onClose={onAfterEdit} />}
     </>
   );
 }

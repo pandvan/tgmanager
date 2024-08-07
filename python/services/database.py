@@ -39,7 +39,7 @@ class TGPart:
 
 class TGItem:
 
-  def __init__(self, id = '', filename = '', channel = '', parts: list[TGPart] | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None):
+  def __init__(self, id = '', filename = '', channel = '', parts: list[TGPart] | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None, path = None):
     self.id = id
     self.filename = filename
     self.channel = channel
@@ -52,6 +52,8 @@ class TGItem:
 
     self.ctime = ctime or NOW()
     self.mtime = mtime or NOW()
+
+    self.path = path
   
   def content_length(self):
     if self.content is not None:
@@ -178,6 +180,25 @@ def remap(ret):
   item.info = ret['info'] if 'info' in ret else {}
   item.content = ret['content'] if 'content' in ret else None
   item.state = ret['state']
+
+
+  if 'path' in ret:
+    coll = {}
+    for p in ret['path']:
+      pFolder = remap(p)
+      coll[ pFolder.id ] = pFolder
+    
+    paths = []
+    pf_id = item.parentfolder
+    while pf_id and len(coll) > 0:
+      p = coll[ pf_id ]
+      del coll[ pf_id ]
+      paths.append( p )
+      pf_id = p.parentfolder
+    
+    item.path = paths
+
+
   return item
 
 
@@ -302,7 +323,7 @@ def update_folder(folder: TGFolder, data: TGFolder, parent = None):
     raise Exception(f"Cannot update folder without id")
 
   # const oldFold = this.remap(folder);
-  fn = re.sub("/", "-", data.filename, flags=re.IGNORECASE)
+  fn = re.sub("/", "-", data.filename or folder.filename, flags=re.IGNORECASE)
 
   folder.type = 'folder'
   folder.filename = fn
@@ -498,3 +519,58 @@ def create_collections(database):
   except Exception as e:
     Log.warn(f"error occurred while create schema for tgsessions")
     Log.warn(e)
+
+
+
+def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = True, skip_folders = True, ordered = False):
+
+  aggregation = []
+  if ( skip_files ):
+    aggregation.append({
+      '$match': {
+        'type': {
+          '$eq': 'folder'
+        }
+      }
+    })
+  
+  if ( skip_folders ):
+    aggregation.append({
+      '$match': {
+        'type': {
+          '$not': {
+            '$eq': 'folder'
+          }
+        }
+      }
+    })
+  
+  aggregation.append({
+    '$graphLookup': { 
+      'from': 'entries', 
+      'startWith': '$parentfolder', 
+      'connectFromField': 'parentfolder', 
+      'connectToField': 'id', 
+      'as': 'path'
+    }
+  })
+
+  if ( parent and parent != ROOT_ID ):
+    aggregation.append({
+      '$match': {
+        'path.id': parent
+      }
+    })
+  
+  if ordered:
+    aggregation.append({
+      '$sort': {
+        'filename': 1
+      }
+    })
+
+  ret = DB.aggregate(aggregation)
+  result = []
+  for i in ret:
+    result.append( remap(i) ) 
+  return result

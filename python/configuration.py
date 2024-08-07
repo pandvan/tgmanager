@@ -58,7 +58,8 @@ def load_config(args):
     "strm": {
       "enabled": args.strm,
       "url": args.strm_url or getYamlValue(yamlFile, ['strm', 'url']),
-      "folder": args.strm_folder or getYamlValue(yamlFile, ['strm', 'folder']),
+      "source": args.strm_source or getYamlValue(yamlFile, ['strm', 'source']),
+      "destination": args.strm_destination or getYamlValue(yamlFile, ['strm', 'destination']),
       "clear_folder": args.strm_clear_folder or getYamlValue(yamlFile, ['strm', 'clear_folder']),
     }
   })
@@ -75,3 +76,5 @@ def load_config(args):
   Config.telegram.users = users
 
   Config.http = SimpleNamespace( **Config.http )
+
+  Config.strm = SimpleNamespace( **Config.strm )

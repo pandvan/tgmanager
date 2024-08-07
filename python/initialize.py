@@ -76,15 +76,15 @@ parser.add_argument('--list',
                     action=argparse.BooleanOptionalAction
                     )
 
-parser.add_argument('--list_show_files',
+parser.add_argument('--list_skip_files',
                     type = bool,
-                    help='show files',
+                    help='do not show files',
                     action=argparse.BooleanOptionalAction
                     )
 
-parser.add_argument('--list_show_folders',
+parser.add_argument('--list_skip_folders',
                     type = bool,
-                    help='show folders',
+                    help='do not show folders',
                     action=argparse.BooleanOptionalAction
                     )
 parser.add_argument('--list_start_folder',
@@ -92,22 +92,20 @@ parser.add_argument('--list_start_folder',
                     help='show folders'
                     )
 
-parser.add_argument('--sync',
-                    type = bool,
-                    help='local folder to sync',
-                    action=argparse.BooleanOptionalAction
-                    )
-
 parser.add_argument('--strm',
                     type = bool,
-                    help='local folder into create strm files',
+                    help='create strm files',
                     action=argparse.BooleanOptionalAction
                     )
 parser.add_argument('--strm_url',
                     type = str,
-                    help='http URL to write into strm files'
+                    help='http URL to write into strm files, use {file_id} as placeholder'
                     )
-parser.add_argument('--strm_folder',
+parser.add_argument('--strm_source',
+                    type = str,
+                    help='folder to create files from'
+                    )
+parser.add_argument('--strm_destination',
                     type = str,
                     help='folder to create files into'
                     )
@@ -118,13 +116,18 @@ parser.add_argument('--strm_clear_folder',
                     action=argparse.BooleanOptionalAction
                     )
 
+parser.add_argument('--sync',
+                    type = bool,
+                    help='upload files from source folder to destination folder',
+                    action=argparse.BooleanOptionalAction
+                    )
 
-parser.add_argument('--source',
+parser.add_argument('--sync_source',
                     type = str,
                     nargs='?',
                     help='local folder'
                     )
-parser.add_argument('--destination',
+parser.add_argument('--sync_destination',
                     type = str,
                     nargs='?',
                     help='destination folder'

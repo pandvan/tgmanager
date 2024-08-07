@@ -31,10 +31,10 @@ export function Overlay(props) {
         {children}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onClose} >
+        <Button variant="secondary" onClick={() => onClose()} >
           Close
         </Button>
-        <Button variant="primary" onClick={onConfirm}>Ok</Button>
+        <Button variant="primary" onClick={() => onConfirm()}>Ok</Button>
       </Modal.Footer>
     </Modal>
   )

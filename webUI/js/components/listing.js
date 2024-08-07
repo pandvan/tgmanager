@@ -5,15 +5,17 @@ import {Folder} from './folder';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCopy, faObjectGroup, faPen, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { faRightLeft } from '@fortawesome/free-solid-svg-icons/faRightLeft';
-import { OverlayDelete, OverlayMerge } from './overlay';
+import { OverlayDelete, OverlayMerge, OverlayRename } from './overlay';
 
 export default function Listing(props) {
   const navigation = useAppState((state) => state.navigation);
   const navigate = useAppState((state) => state.navigateFolder);
   const selectedItems = useAppState((state) => state.selectedItems);
 
+
   const [ showOverlayDelete, setShowOverlayDelete] = useState(false);
   const [ showOverlayMerge, setShowOverlayMerge] = useState(false);
+  const [ showOverlayRename, setShowOverlayRename] = useState(false);
 
   const {skipActions} = props;
   const [currentFolder, setCurrentFolder] = useState(null);
@@ -26,12 +28,14 @@ export default function Listing(props) {
   }, [navigation]);
 
   const showActions = useMemo(() => {
-    return selectedItems.length > 1 && !skipActions;
+    return selectedItems.length > 0 && !skipActions;
   }, [selectedItems, skipActions]);
 
   const showMergeAction = useMemo(() => {
+    if ( selectedItems.length <= 1 ) { return false }
     const folderSelected = selectedItems.find(i => i.type == 'folder');
-    return showActions && !folderSelected;
+    const hasNotParts = !folderSelected && !!selectedItems.find(i => !i.parts || i.parts.length <= 0 );
+    return showActions && !folderSelected && !hasNotParts;
   }, [showActions, selectedItems]);
 
   const reloadFolder = useCallback( () => {
@@ -41,6 +45,10 @@ export default function Listing(props) {
       setCurrentFolder(cf)
     }, 100);
   }, [currentFolder]);
+
+  const onEdit = useCallback(() => {
+    setShowOverlayRename(true);
+  }, [selectedItems]);
 
   const onAfterDelete = useCallback((err, operationConfirmed) => {
     if ( operationConfirmed ) {
@@ -66,6 +74,15 @@ export default function Listing(props) {
     setShowOverlayMerge(false);
   }, [reloadFolder, setShowOverlayMerge]);
 
+  const onAfterEdit = useCallback((err, operationConfirmed) => {
+    if (operationConfirmed && !err) {
+      reloadFolder();
+    } else if (err) {
+      alert('error occurs');
+    }
+    setShowOverlayRename(false);
+  }, [reloadFolder, setShowOverlayRename]);
+
   return (
     <div className="row">
       <div className="col-12" >
@@ -76,6 +93,7 @@ export default function Listing(props) {
           {showActions && (
             <div className="col-3 text-end" >
               <div className="row">
+                {selectedItems.length == 1 && (<div className="col text-center" ><FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit()} /></div>)}
                 <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" /></div>
                 <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" /></div>
                 {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" onClick={() => setShowOverlayMerge(true)}  /></div>}
@@ -92,6 +110,7 @@ export default function Listing(props) {
       </div>
       {showOverlayDelete && <OverlayDelete items={selectedItems} onClose={onAfterDelete} />}
       {showOverlayMerge && <OverlayMerge items={selectedItems} onClose={onAfterMerge} />}
+      {showOverlayRename && <OverlayRename item={selectedItems[0]} onClose={onAfterEdit} />}
     </div>
   )
 

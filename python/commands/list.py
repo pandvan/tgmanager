@@ -1,5 +1,5 @@
 import logging
-from services.database import getItem, getChildren
+from services.database import getItem, list_file_in_folder_recursively
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
 
@@ -23,19 +23,21 @@ class ListFS():
       if folder is None:
         raise Exception(f"folder '{start_folder}' not found")
       start_folder = folder.id
-    self.loop_folder(start_folder, Args.list_show_folders is not False, Args.list_show_files is not False)
+    self.loop_folder(start_folder, Args.list_skip_folders is True, Args.list_skip_files is True)
 
     Log.info('Completed!')
 
   
-  def loop_folder(self, parent = ROOT_ID, show_folders = True, show_files = True):
+  def loop_folder(self, parent = ROOT_ID, skip_folders = True, skip_files = True):
 
-    items = getChildren(parent, ordered = True)
+    items = list_file_in_folder_recursively(parent, skip_folders = skip_folders, skip_files = skip_files, ordered = True)
 
+    
     for item in items:
-      if item.type == 'folder' and show_folders:
-        print( FSApiLib.build_path(item) )
-      if item.type != 'folder' and show_files:
-        print( FSApiLib.build_path(item) )
-      if item.type == 'folder':
-        self.loop_folder(item.id, show_folders, show_files)
+      toPrint = [item.filename]
+      if item.path:
+        for p in item.path:
+          toPrint.append(p.filename if p.filename != 'root' else '')
+      toPrint.reverse()
+      print( '/'.join(toPrint) )
+
