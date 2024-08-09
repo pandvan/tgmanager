@@ -59,7 +59,7 @@ class Strm():
       if file.path:
         for p in file.path:
           folders.append(p.filename if p.filename != 'root' else '')
-      folders.reverse()
+      #folders.reverse()
 
 
       self.createFile(file, local_folder, '/'.join(folders) )

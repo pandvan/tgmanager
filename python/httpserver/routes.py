@@ -1,5 +1,6 @@
 import os
 from aiohttp import web
+import mimetypes
 from services.database import TGFile, TGFolder, getItem, getItemByFilename, update_file, removeItem, update_folder
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
@@ -119,9 +120,15 @@ async def download_file(request: web.Request):
 
   if dbFile.content is not None:
     totalsize = len( dbFile.content )
-  else:
+  elif dbFile.parts:
     for part in dbFile.parts:
       totalsize += part.size
+  else:
+    Log.error(f"cannot serve file caused by no content nor parts: {dbFile.toDB()}")
+    return web.Response(
+      status=422,
+      body=f"file is not a valid file"
+    )
 
   range_header = request.headers.get("Range", 0)
 
@@ -371,7 +378,7 @@ async def merge_file(request: web.Request):
 
 
 @routes.put(r"/folders/{fld_id}")
-async def modify_folder(request: web.Request):
+async def rename_folder(request: web.Request):
   fld_id = request.match_info["fld_id"]
 
   if not fld_id:
@@ -401,7 +408,8 @@ async def modify_folder(request: web.Request):
 
 
 @routes.put(r"/files/{file_id}")
-async def modify_file(request: web.Request):
+async def rename_file(request: web.Request):
+
   file_id = request.match_info["file_id"]
 
   Log.info(f"file to be merge into is: {file_id}")
@@ -425,11 +433,23 @@ async def modify_file(request: web.Request):
 
   data = await request.json()
 
+  newfilename = data['filename'] if 'filename' in data and data['filename'] else dbFile.filename
+
 
   newData = TGFile(
-    filename = data['filename'] if 'filename' in data and data['filename'] else dbFile.filename,
-    type = data['type'] if 'type' in data else dbFile.type
+    filename = newfilename,
+    type = mimetypes.guess_type(newfilename)[0] or 'application/octet-stream'
   )
 
-  newFolderData = update_file(dbFile, newData)
-  return web.json_response( newFolderData.toDB(True) )
+  newFileData = update_file(dbFile, newData)
+  return web.json_response( newFileData.toDB(True) )
+
+
+# @routes.post(r"/files/{file_id}/move/{fld_id}")
+# async def move_folder(request: web.Request):
+#   pass
+
+# @routes.post(r"/files/{file_id}/move/{fld_id}")
+# async def move_file(request: web.Request):
+#   pass
+

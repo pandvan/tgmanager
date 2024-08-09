@@ -1,5 +1,5 @@
 import logging
-from services.database import TGFolder, TGFile, TGPart, getItem, removeItem, create_file, update_file, getItemByFilename, getChildren, create_folder, remap, update_folder
+from services.database import TGFolder, TGFile, TGPart, list_file_in_folder_recursively, getItem, removeItem, create_file, update_file, getItemByFilename, getChildren, create_folder, remap, update_folder
 from constants import ROOT_ID
 from configuration import Config
 from services.telegram import TelegramApi
@@ -7,6 +7,7 @@ import mimetypes
 from services.downloader import Downloader
 from services.tgclients import TGClients
 from services.uploader import Uploader
+import os
 
 Log = logging.getLogger('FSApi')
 
@@ -195,7 +196,6 @@ class FSApi():
       raise Exception(f"'${pathFrom}' not found")
     
     parentFolder = getItem(ROOT_ID)
-    destChannelid = None
 
     while( len(pathsTo) - 1 > 0 ):
       folderName = pathsTo[0]
@@ -219,52 +219,38 @@ class FSApi():
     filename = pathsTo[0]
     pathsTo = pathsTo[1:]
 
+    filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= oldFile.type == 'folder')
+
     oldFileData = remap(oldFile)
   
     if ( oldFile.type == 'folder' ):
-      update_folder(oldFileData, TGFolder(
+      oldFileData = update_folder(oldFileData, TGFolder(
         parentfolder = parentFolder.id, 
         filename = filename
       ), parentFolder.id)
+
+      # move all contents into new folder
+      await self.move_or_copy_all_contents_into_new_folder(oldFileData, oldFileData, destChannelid, False)
     
     else:
-
+      new_parts = oldFileData.parts
       if ( (oldFileData.content is None or oldFileData.content_length() <= 0) and len(oldFileData.parts) > 0 ):
         # file is located on telegram: move it to new channel if needed
         if ( oldFileData.channel != destChannelid ):
           # file needs to be moved between channels
 
-          client = TGClients.next_client()
-
-          newParts = []
-          for part in oldFileData.parts:
-            resp = await client.forward_message(oldFileData.channel, destChannelid, part.messageid)
-            
-            for update in resp.updates:
-              if getattr(update, 'message', None) is not None:
-                newParts.append({
-                  'messageid': update.message.id,
-                  'originalfilename': part.originalfilename,
-                  'hash': part.hash,
-                  'fileid': part.fileid,
-                  'size': part.size,
-                  'index': part.index
-                })
-                break
-
-            # deplete old art
-            resp = await client.delete_message(oldFileData.channel, part.messageid)
-            if resp.pts_count != 1:
-              # callback(v2.Errors.InvalidOperation);
-              raise Exception(f"More than one message has been deleted")
+          new_parts = self.forward_file_between_channels(oldFileData, oldFileData.channel, destChannelid, delete_original = True)
 
 
       update_file(oldFileData, TGFile(
         parentfolder = parentFolder.id,
         filename = filename,
         channel = destChannelid or oldFileData.channel,
-        parts = newParts
+        parts = new_parts
       ), parentFolder.id)
+
+
+
 
   async def copy(self, pathFrom, pathTo):
 
@@ -295,50 +281,34 @@ class FSApi():
     filename = pathsTo[0]
     pathsTo = pathsTo[1:]
 
+    filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= oldFile.type == 'folder')
+
     if ( oldFile.type == 'folder' ):
-      update_folder(oldFile, TGFolder(
+      new_folder = create_folder(TGFolder(
         filename = filename,
         parentfolder = parentFolder.id
       ), parentFolder.id)
+
+
+      # copy all contents into new folder
+      await self.move_or_copy_all_contents_into_new_folder(oldFile, new_folder, destChannelid, False)
     
     else:
     
       data = remap(oldFile)
       data.id = None
+      data.filename = filename
       if ( data.content is not None and data.content_length() > 0):
         # file is located in db
         data.parentfolder = parentFolder.id
-        data.filename = filename
         create_file( data, parentFolder.id)
 
-      else:
-        # file is located on Telegram, need to be forwarded
+      elif data.parts is not None and len(data.parts) > 0 and data.channel != destChannelid:
+        # file is located on telegram, we need to copy messages
+        new_parts = await self.forward_file_between_channels(data, data.channel, destChannelid, delete_original= False )
+        data.parts = new_parts
 
-        client = TGClients.next_client()
-
-        if ( destChannelid is None ):
-          Log.info('file will be uploaded into default channel')
-          destChannelid = Config.telegram.upload.channel
-
-        newParts = []
-        for part in oldFile.parts:
-          resp = resp = await client.forward_message(oldFile.channel, destChannelid, part.messageid)
-          for update in resp.updates:
-            if getattr(update, 'message', None) is not None:
-              newParts.append({
-                'messageid': update.message.id,
-                'originalfilename': part.originalfilename,
-                'hash': part.hash,
-                'fileid': part.fileid,
-                'size': part.size,
-                'index': part.index
-              })
-              break
-        
-        oldFile.id = None
-        oldFile.parts = newParts
-        oldFile.parentfolder = parentFolder.id
-        create_file( oldFile, parentFolder.id)
+        create_file( data, parentFolder.id)
 
   async def read_file_content(self, path, start = 0, end = -1):
     paths = self.split_path(path)
@@ -555,3 +525,160 @@ class FSApi():
         removeItem(itemdata.id)
         Log.info(f"file '{itemdata.filename}' has been deleted, even from telegram")
 
+
+  async def forward_file_between_channels(self, dbFile, source_ch, dest_ch, delete_original = False):
+    
+    client = TGClients.next_client()
+
+    newParts = []
+    for part in dbFile.parts:
+      message = await client.get_message(source_ch, part.messageid)
+      if message:
+        media = TelegramApi.get_media_from_message(message)
+        if str(part.fileid) == str(media.filedata.media_id):
+          resp = await client.forward_message(source_ch, dest_ch, part.messageid)
+          has_part = False
+          for update in resp.updates:
+            if getattr(update, 'message', None) is not None:
+              newParts.append({
+                'messageid': update.message.id,
+                'originalfilename': part.originalfilename,
+                'hash': part.hash,
+                'fileid': part.fileid,
+                'size': part.size,
+                'index': part.index
+              })
+              has_part = True
+              break
+
+          # deplete old art
+          if has_part:
+            if delete_original:
+              resp = await client.delete_message(source_ch, part.messageid)
+              if resp.pts_count != 1:
+                raise Exception(f"More than one message has been deleted")
+          else:
+            raise Exception(f"cannot forward file between channels: {source_ch} -> {dest_ch}")
+        
+        else: 
+          Log.warn(f"file_id is different: {str(part.fileid)} - {str(media.filedata.media_id)}, channel: {source_ch}, message: {part.messageid}")
+          newParts.append(part)
+      else:
+        Log.warn(f"cannot get message from channel: {source_ch} -> {part.messageid}")
+        newParts.append(part)
+    
+    return newParts
+  
+
+
+
+  def calculate_filename_for_copy(self, filename: str, parentfolder: TGFolder, is_folder = False):
+    fn = filename
+    index = 0
+    while True:
+      item = getItemByFilename(fn, parentfolder.id)
+      if item is not None:
+        index += 1
+        if is_folder:
+          fn = f"{filename} - {str(index)}"
+        else:
+          _fn, ext = os.path.splitext(filename)
+          fn = f"{_fn} - {str(index)}{ext}"
+      else:
+        break
+    
+    return fn
+
+
+
+
+  async def move_or_copy_all_contents_into_new_folder(self, source_folder: TGFolder, original_dest_folder: TGFolder, dest_channel: str = None, is_move = False):
+    # TODO: copy or move all contents into new folder
+    all_folders_and_files = list_file_in_folder_recursively(source_folder.id)
+    for item in all_folders_and_files:
+
+      dest_folder = original_dest_folder
+
+      if item.path and len(item.path) > 0:
+        found = False
+        for folder in item.path:
+
+          if found or folder.parentfolder == source_folder.id:
+            found = True
+            # duplicate folder
+            f = getItemByFilename(folder.filename, dest_folder.id, 'folder')
+            if f is None:
+              dest_folder = create_folder(TGFolder(
+                filename = folder.filename,
+                parentfolder = dest_folder.id
+              ), dest_folder.id)
+            else:
+              dest_folder = f
+      
+      if item.type == 'folder':
+
+        create_folder(TGFolder(
+          filename = item.filename,
+          parentfolder = dest_folder.id
+        ), dest_folder.id)
+
+      elif item.content is not None and item.content_length() > 0:
+        # local file into DB
+        new_file = TGFile(
+          filename = item.filename,
+          parentfolder = dest_folder.id,
+          content = item.content,
+          parts = None,
+          type = item.type,
+          info = item.info,
+          channel = item.channel,
+          state = item.state
+        )
+
+        if not is_move:
+          # we are coping file: create a new file
+          create_file( new_file, dest_folder.id )
+        else:
+          # we are moving file: modify parentfolder
+          update_file(item, new_file)
+
+      elif item.parts is not None and len(item.parts) > 0:
+
+        new_parts = item.parts
+        if item.channel != dest_channel or is_move is False:
+          # in case of "copy" we need to copy files on telegram, too
+          new_parts = await self.forward_file_between_channels(item, item.channel, dest_channel, delete_original= is_move )
+        
+        item.parts = new_parts
+        
+        if not is_move:
+          # we are coping file: create a new file
+          item.id = None
+          create_file(item, dest_folder.id)
+        else:
+          # we are moving file: modify parentfolder
+          update_file(item, item, dest_folder.id)
+        
+    
+  def calculate_channel_from_path(self, path: str):
+
+    paths = self.split_path(path)
+
+    item = self.get_last_folder(paths)
+
+    return self.calculate_channel_from_folder_or_file(item)
+
+  def calculate_channel_from_folder_or_file(self, item: TGFolder | TGFile):
+
+    current_item = item
+    if current_item.type != 'folder':
+      current_item = getItem(current_item.parentfolder)
+    
+    while current_item and current_item.id != ROOT_ID:
+      channel = current_item.channel
+      if channel:
+        return channel
+      
+      current_item = getItem(current_item.parentfolder)
+    
+    return current_item.channel

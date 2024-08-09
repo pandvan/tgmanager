@@ -2,7 +2,7 @@ import initialize
 import traceback
 from configuration import Config
 from constants import ROOT_ID
-from services.database import init_database, save_tg_session, get_tg_session
+from services.database import init_database, save_tg_session, get_tg_session, getItem
 from services.tgclients import TGClients
 from services.fsapi import FSApi
 from pyrogram import idle
@@ -67,6 +67,12 @@ async def start():
     if Config.telegram.bot_token:
       from tgbot import Bot
       await Bot.start()
+    
+
+    # root = getItem(ROOT_ID)
+    # fsapi = FSApi(root)
+
+    # await fsapi.move('/media/tvshows/Chicago P.D. (2014)', '/media/tvprograms/Chicago P.D. (2014)')
 
 
     await idle()

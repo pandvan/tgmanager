@@ -277,7 +277,7 @@ def check_exist(filename, parent, type = None, id = None):
 
 
 
-def create_folder(folder: TGFolder, parent = None):
+def create_folder(folder: TGFolder, parent = None, session = None):
   
   # check existing
   if check_exist(folder.filename, parent or folder.parentfolder, 'folder'):
@@ -300,7 +300,7 @@ def create_folder(folder: TGFolder, parent = None):
   if not folder.id:
     folder.id = get_UUID()
 
-  ret = DB.insert_one( folder.toDB() )
+  ret = DB.insert_one( folder.toDB() , session = session)
 
   if folder.parentfolder:
     # update timestamps
@@ -522,7 +522,7 @@ def create_collections(database):
 
 
 
-def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = True, skip_folders = True, ordered = False):
+def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False):
 
   aggregation = []
   if ( skip_files ):
@@ -572,5 +572,8 @@ def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = True, skip_fo
   ret = DB.aggregate(aggregation)
   result = []
   for i in ret:
-    result.append( remap(i) ) 
+    item = remap(i)
+    if item.path:
+      item.path.reverse()
+    result.append( item ) 
   return result

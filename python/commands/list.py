@@ -38,6 +38,6 @@ class ListFS():
       if item.path:
         for p in item.path:
           toPrint.append(p.filename if p.filename != 'root' else '')
-      toPrint.reverse()
+      #toPrint.reverse()
       print( '/'.join(toPrint) )
 
