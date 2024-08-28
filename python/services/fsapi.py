@@ -1,5 +1,5 @@
 import logging
-from services.database import TGFolder, TGFile, TGPart, list_file_in_folder_recursively, getItem, removeItem, create_file, update_file, getItemByFilename, getChildren, create_folder, remap, update_folder
+from services.database import TGFolder, TGFile, TGPart, start_session, list_file_in_folder_recursively, getItem, removeItem, create_file, update_file, getItemByFilename, getChildren, create_folder, remap, update_folder
 from constants import ROOT_ID
 from configuration import Config
 from services.telegram import TelegramApi
@@ -187,128 +187,165 @@ class FSApi():
   
   
   async def move(self, pathFrom: str, pathTo: str):
-
-    pathsTo = self.split_path(pathTo)
-
-    oldFile = self.get_last_folder(pathFrom)
-
-    if ( oldFile is None ):
-      raise Exception(f"'${pathFrom}' not found")
-    
-    parentFolder = getItem(ROOT_ID)
-
-    while( len(pathsTo) - 1 > 0 ):
-      folderName = pathsTo[0]
-      pathsTo = pathsTo[1:]
-
-      destPath = getItemByFilename( folderName, parentFolder.id, 'folder')
-      if ( destPath is None ):
-        destPath = create_folder( TGFolder(
-          parentfolder = parentFolder.id,
-          filename = folderName
-        ), parentFolder.id)
-      
-      parentFolder = destPath
-      destChannelid = destChannelid or parentFolder.channel
-
-    if ( destChannelid is None ):
-      Log.info('[move] file will be uploaded into default channel')
-      destChannelid = Config.telegram.upload.channel
-
-    # get new name
-    filename = pathsTo[0]
-    pathsTo = pathsTo[1:]
-
-    filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= oldFile.type == 'folder')
-
-    oldFileData = remap(oldFile)
+    return await self.move_or_copy(pathFrom, pathTo, True)
   
-    if ( oldFile.type == 'folder' ):
-      oldFileData = update_folder(oldFileData, TGFolder(
-        parentfolder = parentFolder.id, 
-        filename = filename
-      ), parentFolder.id)
+  async def copy(self, pathFrom: str, pathTo: str):
+    return await self.move_or_copy(pathFrom, pathTo, False)
 
-      # move all contents into new folder
-      await self.move_or_copy_all_contents_into_new_folder(oldFileData, oldFileData, destChannelid, False)
-    
-    else:
-      new_parts = oldFileData.parts
-      if ( (oldFileData.content is None or oldFileData.content_length() <= 0) and len(oldFileData.parts) > 0 ):
-        # file is located on telegram: move it to new channel if needed
-        if ( oldFileData.channel != destChannelid ):
-          # file needs to be moved between channels
+  async def move_or_copy(self, pathFrom: str, pathTo: str, is_move = False):
 
-          new_parts = self.forward_file_between_channels(oldFileData, oldFileData.channel, destChannelid, delete_original = True)
+    (session, transaction) = start_session()
 
+    with transaction:
 
-      update_file(oldFileData, TGFile(
-        parentfolder = parentFolder.id,
-        filename = filename,
-        channel = destChannelid or oldFileData.channel,
-        parts = new_parts
-      ), parentFolder.id)
+      pathsTo = self.split_path(pathTo)
 
+      oldFile = self.get_last_folder(pathFrom)
 
-
-
-  async def copy(self, pathFrom, pathTo):
-
-    pathsTo = self.split_path(pathTo)
-
-    oldFile = self.get_last_folder(pathFrom)
-
-    if ( oldFile is None ):
-      raise Exception(f"'${pathFrom}' not found")
-
-    parentFolder = getItem(ROOT_ID)
-    destChannelid = None
-
-    while( len(pathsTo) - 1 > 0 ):
-      folder_name = pathsTo[0]
-      pathsTo = pathsTo[1:]
-      destPath = getItemByFilename( folder_name, parentFolder.id, 'folder')
-      if ( destPath is None ):
-        destPath = create_folder( TGFolder(
-          filename = folder_name,
-          parentfolder = parentFolder.id
-        ), parentFolder.id)
+      if ( oldFile is None ):
+        raise Exception(f"'${pathFrom}' not found")
       
-      parentFolder = destPath
-      destChannelid = destChannelid or parentFolder.channel
+      parentFolder = getItem(ROOT_ID)
+      destChannelid = None
 
-    # get new name
-    filename = pathsTo[0]
-    pathsTo = pathsTo[1:]
+      while( len(pathsTo) - 1 > 0 ):
+        folderName = pathsTo[0]
+        pathsTo = pathsTo[1:]
 
-    filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= oldFile.type == 'folder')
+        destPath = getItemByFilename( folderName, parentFolder.id, 'folder', session= session)
+        if ( destPath is None ):
+          # destPath = create_folder( TGFolder(
+          #   parentfolder = parentFolder.id,
+          #   filename = folderName
+          # ), parentFolder.id, session= session)
+          raise Exception(f"folder '{folderName}' not exists")
+        
+        parentFolder = destPath
+        destChannelid = parentFolder.channel or destChannelid
 
-    if ( oldFile.type == 'folder' ):
-      new_folder = create_folder(TGFolder(
-        filename = filename,
-        parentfolder = parentFolder.id
-      ), parentFolder.id)
+      # get new name
+      filename = pathsTo[0]
+      pathsTo = pathsTo[1:]
 
+      already_existing_folder = getItemByFilename(filename, parentFolder.id, 'folder', session= session)
 
-      # copy all contents into new folder
-      await self.move_or_copy_all_contents_into_new_folder(oldFile, new_folder, destChannelid, False)
+      if already_existing_folder is not None:
+        parentFolder = already_existing_folder
+        filename = oldFile.filename
+
+        if already_existing_folder.channel:
+          destChannelid = already_existing_folder.channel
+      
+
+      if ( destChannelid is None ):
+        Log.info('[move] file will be moved into default channel')
+        destChannelid = Config.telegram.upload.channel
+
+      filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= (oldFile.type == 'folder'))
+
+      oldFileData = remap(oldFile)
     
-    else:
+      if ( oldFile.type == 'folder' ):
+        
+        newFolderData = None
+        
+        if is_move:
+          newFolderData = update_folder(oldFileData, TGFolder(
+            parentfolder = parentFolder.id, 
+            filename = filename
+          ), parentFolder.id, session= session)
+        else:
+          oldFileData.id = None
+          oldFileData.filename = filename
+          newFolderData = create_folder(oldFileData, parentFolder.id, session= session)
+
+        # move all contents into new folder
+        await self.move_or_copy_all_contents_into_new_folder(oldFile, newFolderData, destChannelid, is_move, session= session)
+      
+      else:
+        new_parts = oldFileData.parts
+        if ( (oldFileData.content is None or oldFileData.content_length() <= 0) and len(oldFileData.parts) > 0 ):
+          # file is located on telegram: move it to new channel if needed
+          if ( oldFileData.channel != destChannelid ):
+            # file needs to be moved between channels
+
+            new_parts = self.forward_file_between_channels(oldFileData, oldFileData.channel, destChannelid, delete_original = is_move)
+
+        if is_move:
+          update_file(oldFileData, TGFile(
+            parentfolder = parentFolder.id,
+            filename = filename,
+            channel = destChannelid or oldFileData.channel,
+            parts = new_parts
+          ), parentFolder.id, session= session)
+        else:
+          oldFileData.id = None
+          oldFileData.filename = filename
+          oldFileData.channel = destChannelid or oldFileData.channel
+          oldFileData.parts = new_parts
+
+          create_file(oldFileData, parentFolder.id, session= session)
+
+
+
+
+  # async def copy(self, pathFrom, pathTo):
+
+  #   pathsTo = self.split_path(pathTo)
+
+  #   oldFile = self.get_last_folder(pathFrom)
+
+  #   if ( oldFile is None ):
+  #     raise Exception(f"'${pathFrom}' not found")
+
+  #   parentFolder = getItem(ROOT_ID)
+  #   destChannelid = None
+
+  #   while( len(pathsTo) - 1 > 0 ):
+  #     folder_name = pathsTo[0]
+  #     pathsTo = pathsTo[1:]
+  #     destPath = getItemByFilename( folder_name, parentFolder.id, 'folder')
+  #     if ( destPath is None ):
+  #       destPath = create_folder( TGFolder(
+  #         filename = folder_name,
+  #         parentfolder = parentFolder.id
+  #       ), parentFolder.id)
+      
+  #     parentFolder = destPath
+  #     destChannelid = destChannelid or parentFolder.channel
+
+  #   # get new name
+  #   filename = pathsTo[0]
+  #   pathsTo = pathsTo[1:]
+
+  #   filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= oldFile.type == 'folder')
+
+  #   if ( oldFile.type == 'folder' ):
+  #     new_folder = create_folder(TGFolder(
+  #       filename = filename,
+  #       parentfolder = parentFolder.id
+  #     ), parentFolder.id)
+
+
+  #     # copy all contents into new folder
+  #     await self.move_or_copy_all_contents_into_new_folder(oldFile, new_folder, destChannelid, False)
     
-      data = remap(oldFile)
-      data.id = None
-      data.filename = filename
-      if ( data.content is not None and data.content_length() > 0):
-        # file is located in db
-        data.parentfolder = parentFolder.id
-        create_file( data, parentFolder.id)
+  #   else:
+    
+  #     data = remap(oldFile)
+  #     data.id = None
+  #     data.filename = filename
+  #     if ( data.content is not None and data.content_length() > 0):
+  #       # file is located in db
+  #       data.parentfolder = parentFolder.id
+  #       create_file( data, parentFolder.id)
 
-      elif data.parts is not None and len(data.parts) > 0 and data.channel != destChannelid:
-        # file is located on telegram, we need to copy messages
-        new_parts = await self.forward_file_between_channels(data, data.channel, destChannelid, delete_original= False )
-        data.parts = new_parts
+  #     elif data.parts is not None and len(data.parts) > 0 and data.channel != destChannelid:
+  #       # file is located on telegram, we need to copy messages
+  #       new_parts = await self.forward_file_between_channels(data, data.channel, destChannelid, delete_original= False )
+  #       data.parts = new_parts
 
-        create_file( data, parentFolder.id)
+  #       create_file( data, parentFolder.id)
 
   async def read_file_content(self, path, start = 0, end = -1):
     paths = self.split_path(path)
@@ -333,7 +370,7 @@ class FSApi():
     if end == -1:
       end = totalsize - 1
 
-    client = TGClients.next_client()
+    client = TGClients.next_client(True)
 
     Log.info(f"serve file '{filename}', bytes: {start}-{end}, total: {totalsize}")
 
@@ -371,91 +408,95 @@ class FSApi():
     else:
       Log.info(f"file will be uploaded in channel: {channelid}")
 
-    client = TGClients.next_client();
+    client = TGClients.next_client()
 
-    uploader = Uploader(client, filename, channelid)
+    session, transation = start_session()
 
-    dbFile = getItemByFilename(filename, folder.id)
-    if dbFile is not None and dbFile.state == 'TEMP':
-      Log.warn(f"already existing TEMPORARY file '{filename}' in '{folder.filename}'")
+    with transation:
 
-    if dbFile is not None and dbFile.id:
-      dbFile = update_file(dbFile, TGFile(
-        filename = filename,
-        channel = channelid,
-        type = mimetypes.guess_type(filename)[0] or 'application/octet-stream',
-        parentfolder = folder.id
-      ), folder.id)
-    else:
-      # create a new temp file
-      dbFile = create_file(TGFile(
-        filename = filename,
-        channel = channelid,
-        type = mimetypes.guess_type(filename)[0],
-        parentfolder = folder.id,
-        state = 'TEMP'
-      ), folder.id)
+      uploader = Uploader(client, filename, channelid)
 
-      def on_stopped(*args):
-        Log.warn(f"Process aborted, remove item: {dbFile.id} - {dbFile.filename}")
-        removeItem(dbFile.id)
+      dbFile = getItemByFilename(filename, folder.id, session= session)
+      if dbFile is not None and dbFile.state == 'TEMP':
+        Log.warn(f"already existing TEMPORARY file '{filename}' in '{folder.filename}'")
 
-      uploader.on('stopped', on_stopped)
-      uploader.on('error', on_stopped)
-                  
-
-    def on_complete_upload(*args):
-
-      newFileData = getItem(dbFile.id)
-      newFileData.state = 'ACTIVE'
-      update_file(dbFile, newFileData)
-
-      if callback is not None:
-        callback(dbFile)
-      Log.info(f"File has been processed: [{dbFile.id}] '{dbFile.filename}'")
-
-    uploader.on('completeUpload', on_complete_upload)
-
-
-    def on_portion_upload(portion, *args):
-      Log.debug(f"Portion of file has been uploaded, save it into DB: {vars(portion)}")
-
-      chl = channelid
-
-      newFileData = getItem(dbFile.id)
-      newFileData.channel = chl or newFileData.channel
-
-      if portion.content is not None:
-        # file will be stored in DB
-        newFileData.content = portion.content
-        newFileData.parts = None
+      if dbFile is not None and dbFile.id:
+        dbFile = update_file(dbFile, TGFile(
+          filename = filename,
+          channel = channelid,
+          type = mimetypes.guess_type(filename)[0] or 'application/octet-stream',
+          parentfolder = folder.id
+        ), folder.id, session= session)
       else:
-        newFileData.content = None
-        if newFileData.parts is None:
-          newFileData.parts = []
-        newFileData.parts.append( TGPart(
-          messageid = portion.msg_id,
-          originalfilename = portion.filename,
-          hash = '',
-          fileid = str(portion.file_id),
-          size = int(portion.size),
-          index = portion.index
-        ) )
+        # create a new temp file
+        dbFile = create_file(TGFile(
+          filename = filename,
+          channel = channelid,
+          type = mimetypes.guess_type(filename)[0],
+          parentfolder = folder.id,
+          state = 'TEMP'
+        ), folder.id, session= session)
 
-        # newFileData.state = 'ACTIVE'
+        def on_stopped(*args):
+          Log.warn(f"Process aborted, remove item: {dbFile.id} - {dbFile.filename}")
+          removeItem(dbFile.id, session= session)
 
-      update_file(dbFile, newFileData)
+        uploader.on('stopped', on_stopped)
+        uploader.on('error', on_stopped)
+                    
 
-      Log.debug(f"file has been correctly uploaded, id: '{dbFile.id}'")
+      def on_complete_upload(*args):
+
+        newFileData = getItem(dbFile.id)
+        newFileData.state = 'ACTIVE'
+        update_file(dbFile, newFileData, session= session)
+
+        if callback is not None:
+          callback(dbFile)
+        Log.info(f"File has been processed: [{dbFile.id}] '{dbFile.filename}'")
+
+      uploader.on('completeUpload', on_complete_upload)
 
 
-    uploader.on('portionUploaded', on_portion_upload)
+      def on_portion_upload(portion, *args):
+        Log.debug(f"Portion of file has been uploaded, save it into DB: {vars(portion)}")
 
-    Log.info(f"file '{filename}' is being uploaded, id: '{dbFile.id}'")
+        chl = channelid
+
+        newFileData = getItem(dbFile.id, session= session)
+        newFileData.channel = chl or newFileData.channel
+
+        if portion.content is not None:
+          # file will be stored in DB
+          newFileData.content = portion.content
+          newFileData.parts = None
+        else:
+          newFileData.content = None
+          if newFileData.parts is None:
+            newFileData.parts = []
+          newFileData.parts.append( TGPart(
+            messageid = portion.msg_id,
+            originalfilename = portion.filename,
+            hash = '',
+            fileid = str(portion.file_id),
+            size = int(portion.size),
+            index = portion.index
+          ) )
+
+          # newFileData.state = 'ACTIVE'
+
+        update_file(dbFile, newFileData, session= session)
+
+        Log.debug(f"file has been correctly uploaded, id: '{dbFile.id}'")
+
+
+      uploader.on('portionUploaded', on_portion_upload)
+
+      Log.info(f"file '{filename}' is being uploaded, id: '{dbFile.id}'")
     
     return uploader
 
-  async def delete(self, path, recursively = False):
+  async def delete(self, path):
 
     paths = self.split_path(path)
     folder = self.get_last_folder(path, True)
@@ -465,65 +506,74 @@ class FSApi():
     
     filename = paths.pop()
 
-    item = getItemByFilename(filename, folder.id);
+    item = getItemByFilename(filename, folder.id)
     if ( not item ):
       raise Exception(f"'{filename}' not found under {folder.id}")
-    
 
     Log.info(f"trying to delete '{item.filename}' [{item.id}], type: {item.type}")
 
-    if (item.type == 'folder'):
+    (session, transaction) = start_session()
 
-      if ( recursively ):
-        itemPath = FSApi.build_path( item )
-        children = await self.list_dir( itemPath )
-        children = children[1:]
-        for ch in children:
-          childPath = f"{itemPath}/{ch.filename}"
-          await self.delete(childPath, recursively)
+    with transaction:
 
-      itemdata = remap(item)
-      removeItem(itemdata.id)
-      Log.info(f"folder '{itemdata.filename}' has been deleted, recursively: {recursively}")
+      if (item.type == 'folder'):
 
-    else:
-      data = remap(item)
+        all_folders_and_files = list_file_in_folder_recursively(item.id, session= session)
 
-      if data.content and data.content_length():
-        # file is a local file in DB
-        removeItem(data.id)
-        Log.info(f"file '{data.filename}' has been deleted")
-      else:
-        # file is located on telegram
-        parts = data.parts
-        if parts is not None:
-        
-          client = TGClients.next_client()
+        for file_or_folder in all_folders_and_files:
 
-          for part in parts:
-            mess = await client.get_message(data.channel, part.messageid)
-            if ( mess and mess.media ):
-              media = TelegramApi.get_media_from_message(mess)
-              document = media
-              if str(part.fileid) == str(document.filedata.media_id):
-                # ok, proceed to delete message
-                resp = await client.delete_message(data.channel, part.messageid)
-                if (resp.pts_count != 1):
-                  raise Exception(f"Deleted more than 1 message")
-                
-              else:
-                Log.error(f"File mismatch: fileid '{document.id}' is different for message '{mess.id}'")
-                # callback(v2.Errors.InvalidOperation);
-                raise Exception(f"File mismatch: fileid '{document.id}' is different for message '{mess.id}'")
-              
-            else:
-              Log.error(f"cannot retrieve message from chat {data.channel} part: '{part.messageid}' for file '{data.filename}'")
-              # Silently fails
-              #raise Exception(f"cannot retrieve message from chat: {data.channel} part: {part.messageid}")
+          if file_or_folder.type == 'folder':
+            removeItem(file_or_folder.id, session= session)
+          else:
+            await self.remove_file(file_or_folder, session)
 
         itemdata = remap(item)
-        removeItem(itemdata.id)
-        Log.info(f"file '{itemdata.filename}' has been deleted, even from telegram")
+        removeItem(itemdata.id, session= session)
+        Log.info(f"folder '{itemdata.filename}' and all its content have been deleted")
+
+      else:
+        await self.remove_file(item, session)
+
+
+  async def remove_file(self, file: TGFile, session= None):
+    data = remap(file)
+
+    if data.content and data.content_length():
+      # file is a local file in DB
+      removeItem(data.id, session= session)
+      Log.info(f"file '{data.filename}' has been deleted")
+    else:
+      # file is located on telegram
+      parts = data.parts
+      if parts is not None:
+      
+        client = TGClients.next_client()
+
+        for part in parts:
+          mess = await client.get_message(data.channel, part.messageid)
+          if ( mess and mess.media ):
+            media = TelegramApi.get_media_from_message(mess)
+            document = media
+            if str(part.fileid) == str(document.filedata.media_id):
+              # ok, proceed to delete message
+              await client.delete_message(data.channel, part.messageid)
+              # if (resp.pts_count > 1):
+              #   that's odd!
+              #   raise Exception(f"Deleted more than 1 message")
+              
+            else:
+              Log.error(f"File mismatch: fileid '{document.filedata.media_id}' is different for message '{mess.id}': {part.fileid}")
+              # callback(v2.Errors.InvalidOperation);
+              raise Exception(f"File mismatch: fileid '{document.filedata.media_id}' is different for message '{mess.id}'")
+            
+          else:
+            Log.error(f"cannot retrieve message from chat {data.channel} part: '{part.messageid}' for file '{data.filename}'")
+            # Silently fails
+            #raise Exception(f"cannot retrieve message from chat: {data.channel} part: {part.messageid}")
+
+      itemdata = remap(file)
+      removeItem(itemdata.id, session= session)
+      Log.info(f"file '{itemdata.filename}' has been deleted, even from telegram")
 
 
   async def forward_file_between_channels(self, dbFile, source_ch, dest_ch, delete_original = False):
@@ -592,72 +642,79 @@ class FSApi():
 
 
 
-  async def move_or_copy_all_contents_into_new_folder(self, source_folder: TGFolder, original_dest_folder: TGFolder, dest_channel: str = None, is_move = False):
-    # TODO: copy or move all contents into new folder
-    all_folders_and_files = list_file_in_folder_recursively(source_folder.id)
+  async def move_or_copy_all_contents_into_new_folder(self, source_folder: TGFolder, original_dest_folder: TGFolder, dest_channel: str = None, is_move = False, session = None):
+    # copy or move all contents into new folder
+    all_folders_and_files = list_file_in_folder_recursively(source_folder.id, session= session)
+    
     for item in all_folders_and_files:
 
-      dest_folder = original_dest_folder
+      # keep original-file's parentfolder
+      dest_folder = getItem(item.parentfolder, session= session)
 
-      if item.path and len(item.path) > 0:
-        found = False
-        for folder in item.path:
+      if not is_move:
+        # we are coping files and folders
+        
+        # calculate new destination-folder in case of "copy", starting from new copied folder
+        dest_folder = original_dest_folder
 
-          if found or folder.parentfolder == source_folder.id:
-            found = True
-            # duplicate folder
-            f = getItemByFilename(folder.filename, dest_folder.id, 'folder')
-            if f is None:
-              dest_folder = create_folder(TGFolder(
-                filename = folder.filename,
-                parentfolder = dest_folder.id
-              ), dest_folder.id)
-            else:
-              dest_folder = f
-      
-      if item.type == 'folder':
+        if item.path and len(item.path) > 0:
+          found = False
+          for folder in item.path:
 
-        create_folder(TGFolder(
-          filename = item.filename,
-          parentfolder = dest_folder.id
-        ), dest_folder.id)
+            if found or folder.parentfolder == source_folder.id:
+              found = True
+              # duplicate folder for copy
+              f = getItemByFilename(folder.filename, dest_folder.id, 'folder', session= session)
+              if f is None:
+                dest_folder = create_folder(TGFolder(
+                  filename = folder.filename,
+                  parentfolder = dest_folder.id
+                ), dest_folder.id, session= session)
+              else:
+                dest_folder = f
+        
+        if item.type == 'folder':
 
-      elif item.content is not None and item.content_length() > 0:
-        # local file into DB
-        new_file = TGFile(
-          filename = item.filename,
-          parentfolder = dest_folder.id,
-          content = item.content,
-          parts = None,
-          type = item.type,
-          info = item.info,
-          channel = item.channel,
-          state = item.state
-        )
+          create_folder(TGFolder(
+            filename = item.filename,
+            parentfolder = dest_folder.id
+          ), dest_folder.id, session= session)
 
-        if not is_move:
+        elif item.content is not None and item.content_length() > 0:
+          
+          # local file into DB
+          new_file = TGFile(
+            filename = item.filename,
+            parentfolder = dest_folder.id,
+            content = item.content,
+            parts = None,
+            type = item.type,
+            info = item.info,
+            channel = dest_channel,
+            state = item.state
+          )
+
           # we are coping file: create a new file
-          create_file( new_file, dest_folder.id )
-        else:
-          # we are moving file: modify parentfolder
-          update_file(item, new_file)
+          create_file( new_file, dest_folder.id, session= session )
 
-      elif item.parts is not None and len(item.parts) > 0:
+      if item.type != 'folder' and item.parts is not None and len(item.parts) > 0:
 
         new_parts = item.parts
-        if item.channel != dest_channel or is_move is False:
-          # in case of "copy" we need to copy files on telegram, too
+        if item.channel != dest_channel:
+          # in case of we have different channels, we need to forward messages on telegram
           new_parts = await self.forward_file_between_channels(item, item.channel, dest_channel, delete_original= is_move )
         
         item.parts = new_parts
+
+        item.channel = dest_channel or item.channel
         
         if not is_move:
           # we are coping file: create a new file
           item.id = None
-          create_file(item, dest_folder.id)
+          create_file(item, dest_folder.id, session= session)
         else:
           # we are moving file: modify parentfolder
-          update_file(item, item, dest_folder.id)
+          update_file(item, item, dest_folder.id, session= session)
         
     
   def calculate_channel_from_path(self, path: str):

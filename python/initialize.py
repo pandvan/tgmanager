@@ -89,7 +89,7 @@ parser.add_argument('--list_skip_folders',
                     )
 parser.add_argument('--list_start_folder',
                     type = str,
-                    help='show folders'
+                    help='select the root folder to list'
                     )
 
 parser.add_argument('--strm',
@@ -131,6 +131,11 @@ parser.add_argument('--sync_destination',
                     type = str,
                     nargs='?',
                     help='destination folder'
+                    )
+parser.add_argument('--sync_delete_source',
+                    type = str,
+                    nargs='?',
+                    help='delete files and folder after synced'
                     )
 
 Args = parser.parse_args()

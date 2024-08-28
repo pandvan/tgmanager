@@ -123,11 +123,16 @@ class TGFile(TGItem):
 def init_database():
   Log.info(f"init database")
 
+  global mongo
   mongo = MongoClient( Config.db )
   dbname = urlparse(Config.db)
+
+  global database
   database = mongo[ dbname.path[1:] ]
 
   create_collections(database)
+
+  check_transaction()
 
   global DB
   DB = database['entries']
@@ -148,9 +153,15 @@ def init_database():
     create_folder(fld, None )
 
 
+def start_session():
+  session = mongo.start_session()
+  transaction = session.start_transaction()
+  return (session, transaction)
+
+
 def remap(ret):
   if type(ret) == TGFile or type(ret) == TGFolder:
-    return ret
+    return remap(ret.toDB())
   
   item = TGFolder()
   if ret['type'] != 'folder':
@@ -202,12 +213,12 @@ def remap(ret):
   return item
 
 
-def getItem(id):
-  ret = DB.find_one({'id': id})
+def getItem(id, session = None):
+  ret = DB.find_one({'id': id}, session= session)
   if ret is not None:
     return remap(ret)
 
-def getChildren(folderId, type = None, ordered = False):
+def getChildren(folderId, type = None, ordered = False, session= None):
   filter = {
     'parentfolder': folderId
   }
@@ -215,7 +226,7 @@ def getChildren(folderId, type = None, ordered = False):
   if type is not None:
     filter['type'] = type
 
-  ret = DB.find(filter)
+  ret = DB.find(filter, session= session)
 
   if ordered:
     ret = ret.sort({'filename': 1})
@@ -226,14 +237,14 @@ def getChildren(folderId, type = None, ordered = False):
 
   return res
 
-def removeItem(itemId):
+def removeItem(itemId, session = None):
   if itemId == ROOT_ID:
     raise Exception('Cannot remote root folder')
 
-  ret = DB.delete_one({'id': itemId})
+  ret = DB.delete_one({'id': itemId}, session = session)
   return ret
 
-def getItemByFilename(filename: str, parent: str = None, type: str = None):
+def getItemByFilename(filename: str, parent: str = None, type: str = None, session= None):
   filter = {}
   if parent is not None: 
     filter['parentfolder'] = parent
@@ -246,18 +257,18 @@ def getItemByFilename(filename: str, parent: str = None, type: str = None):
     filter['type'] = type
 
   if parent is not None:
-    ret = DB.find(filter).collation( { 'locale': 'en', 'strength': 1 } )
+    ret = DB.find(filter, session= session).collation( { 'locale': 'en', 'strength': 1 } )
     for item in ret:
       # get first item
       return remap(item)
   else:
-    ret = DB.find(filter)
+    ret = DB.find(filter, session= session)
     res = []
     for item in ret:
       res.append( remap(item) )
 
 
-def check_exist(filename, parent, type = None, id = None):
+def check_exist(filename, parent, type = None, id = None, session= None):
   fn = re.sub("/", "-", filename, flags=re.IGNORECASE)
   regexp = re.compile( f"^{fn}", re.IGNORECASE)
   filter = {
@@ -272,7 +283,7 @@ def check_exist(filename, parent, type = None, id = None):
   if type is not None:
     filter['type'] = type
 
-  ret = DB.count_documents(filter)
+  ret = DB.count_documents(filter, session= session)
   return ret > 0
 
 
@@ -280,7 +291,7 @@ def check_exist(filename, parent, type = None, id = None):
 def create_folder(folder: TGFolder, parent = None, session = None):
   
   # check existing
-  if check_exist(folder.filename, parent or folder.parentfolder, 'folder'):
+  if check_exist(folder.filename, parent or folder.parentfolder, 'folder', session= session):
     raise Exception(f"Folder '{folder.filename}' already exists in '{parent}'")
 
   # return await this.write( async () => {
@@ -304,19 +315,19 @@ def create_folder(folder: TGFolder, parent = None, session = None):
 
   if folder.parentfolder:
     # update timestamps
-    pfolder = getItem( folder.parentfolder )
+    pfolder = getItem( folder.parentfolder, session= session )
     pfolder.mtime = NOW()
-    update_folder(pfolder, pfolder)
+    update_folder(pfolder, pfolder, session= session)
 
   # faster than getItem
-  obj = DB.find_one({'_id': ret.inserted_id})
+  obj = DB.find_one({'_id': ret.inserted_id}, session= session)
   return remap( obj )
 
 
 
-def update_folder(folder: TGFolder, data: TGFolder, parent = None):
+def update_folder(folder: TGFolder, data: TGFolder, parent = None, session = None):
     # check existing
-  if check_exist(folder.filename, parent or folder.parentfolder, 'folder', data.id or folder.id):
+  if check_exist(data.filename, parent or data.parentfolder or folder.parentfolder, 'folder', data.id or folder.id):
     raise Exception(f"Folder '{data.filename}' already exists in '{parent}'")
   
   if not folder.id:
@@ -333,11 +344,11 @@ def update_folder(folder: TGFolder, data: TGFolder, parent = None):
   # we can modify relative channel for this folder
   folder.channel = data.channel if data.channel is not None else folder.channel
   
-  DB.update_one({'id': folder.id}, {'$set': folder.toDB()})
-  return getItem(folder.id)
+  ret = DB.update_one({'id': folder.id}, {'$set': folder.toDB()}, session = session)
+  return getItem(folder.id, session= session)
 
 
-def create_file(file: TGFile, parent = None):
+def create_file(file: TGFile, parent = None, session = None):
   
   # check existing
   if check_exist(file.filename, parent or file.parentfolder, file.type):
@@ -372,22 +383,22 @@ def create_file(file: TGFile, parent = None):
   if not file.id:
     file.id = get_UUID()
     
-  ret = DB.insert_one( file.toDB() )
+  ret = DB.insert_one( file.toDB(), session= session )
 
   if file.parentfolder:
     # update timestamps
-    pfolder = getItem( file.parentfolder )
+    pfolder = getItem( file.parentfolder, session= session )
     pfolder.mtime = NOW()
-    update_folder(pfolder, pfolder)
+    update_folder(pfolder, pfolder, session= session)
 
   # faster than getItem
-  obj = DB.find_one({'_id': ret.inserted_id})
+  obj = DB.find_one({'_id': ret.inserted_id}, session= session)
   return remap( obj )
 
 
-def update_file(file: TGFile, data: TGFile, parent = None):
+def update_file(file: TGFile, data: TGFile, parent = None, session = None):
   # check existing
-  if check_exist(file.filename, parent or file.parentfolder, file.type, file.id):
+  if check_exist(data.filename, parent or data.parentfolder or file.parentfolder, file.type, file.id):
     raise Exception(f"`File '{file.filename}' already exists in '{parent}'")
 
   if not file.id:
@@ -399,7 +410,7 @@ def update_file(file: TGFile, data: TGFile, parent = None):
 
   fn = re.sub("/", "-", data.filename or file.filename, flags=re.IGNORECASE)
 
-  insert['type'] = data.type or file.type
+  insert['type'] = data.type or file.type or 'application/octet-stream'
   insert['filename'] = fn
   insert['parentfolder'] = parent or data.parentfolder or file.parentfolder
   insert['state'] = data.state or file.state or 'ACTIVE'
@@ -423,12 +434,12 @@ def update_file(file: TGFile, data: TGFile, parent = None):
       insert['content'] = data.content
 
   Log.debug(f"updating file into DB: {insert['id']} - {insert}")
-  DB.update_one({'id': insert['id']}, { '$set': insert})
+  DB.update_one({'id': insert['id']}, { '$set': insert}, session = session)
 
-  return getItem(insert['id'])
+  return getItem(insert['id'], session= session)
 
 
-def get_file_by_message_id_and_channel(msgId: int, channel: str):
+def get_file_by_message_id_and_channel(msgId: int, channel: str, session= None):
   filter = {
     'type': { '$not': { '$eq': 'folder' } },
     'channel': channel,
@@ -436,16 +447,16 @@ def get_file_by_message_id_and_channel(msgId: int, channel: str):
     'parts.0': { '$exists': True },
     'parts.messageid': msgId
   }
-  ret = DB.find_one(filter)
+  ret = DB.find_one(filter, session= session)
   if ret is not None:
     return remap(ret)
 
-def get_folders_by_channel(channelId: str):
+def get_folders_by_channel(channelId: str, session= None):
   filter = {
     'type': 'folder',
     'channel': channelId
   }
-  ret = DB.find(filter)
+  ret = DB.find(filter, session= session)
   res = []
   for item in ret:
     res.append( remap(item) )
@@ -520,9 +531,23 @@ def create_collections(database):
     Log.warn(f"error occurred while create schema for tgsessions")
     Log.warn(e)
 
+def check_transaction():
 
+  global CAN_TRANSACTION
+  CAN_TRANSACTION = False
+  
+  try:
+    session = mongo.start_session()
+    transaction = session.start_transaction()
 
-def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False):
+    with transaction:
+      Log.debug('check transaction')
+    CAN_TRANSACTION = True
+
+  except Exception as e:
+    CAN_TRANSACTION = False
+
+def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False, session= None):
 
   aggregation = []
   if ( skip_files ):
@@ -569,7 +594,7 @@ def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_f
       }
     })
 
-  ret = DB.aggregate(aggregation)
+  ret = DB.aggregate(aggregation, session= session)
   result = []
   for i in ret:
     item = remap(i)

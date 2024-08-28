@@ -25,7 +25,13 @@ async def start():
   for user in Config.telegram.users:
     session = get_tg_session(user.id)
     Log.debug(f"got session from DB for user: {user.id} -> {session is not None}")
-    await TGClients.add_client(user.id, user.api_id, user.api_hash, getattr(user, 'bot_token', None), session)
+    client = await TGClients.add_client(user.id, user.api_id, user.api_hash, getattr(user, 'bot_token', None), session)
+    if session is None:
+      Log.info(f"save session for user {user.id}")
+      tgsess = await client.get_session()
+      save_tg_session( client._name, tgsess )
+    Log.info(f"Telegram is authenticated for user {user.id}")
+
   
   TGClients.check()
 
@@ -71,8 +77,7 @@ async def start():
 
     # root = getItem(ROOT_ID)
     # fsapi = FSApi(root)
-
-    # await fsapi.move('/media/tvshows/Chicago P.D. (2014)', '/media/tvprograms/Chicago P.D. (2014)')
+    # await fsapi.copy('/media/tvshows/Chicago P.D. (2014)', '/media/tvprograms')
 
 
     await idle()
