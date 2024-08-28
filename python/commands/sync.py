@@ -71,6 +71,8 @@ class Sync():
     Log.info('Completed!')
 
 
+
+
   async def loop_folder(self, source_path: str, destination_folder: TGFolder, dry_run= False):
     Log.info(f"loop folder '{source_path}'")
 
@@ -95,6 +97,7 @@ class Sync():
           if dry_run:
             Log.info(f"'{filename_full_path}' may be processed, skip as per dry_run")
           else:
+            Log.info( f"'{filename}' will be processed in '{destination_file_path}'")
             ret.append( (filename_full_path, destination_file_path ) )
           
         else:
