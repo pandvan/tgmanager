@@ -137,6 +137,11 @@ parser.add_argument('--sync_delete_source',
                     action=argparse.BooleanOptionalAction,
                     help='delete files and folder after synced'
                     )
+parser.add_argument('--sync_dry_run',
+                    type = bool,
+                    action=argparse.BooleanOptionalAction,
+                    help='collects all files to be uploaded and skips their processing'
+                    )
 
 Args = parser.parse_args()
 

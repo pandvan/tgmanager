@@ -34,6 +34,8 @@ class Sync():
 
     delete_original = Args.sync_delete_source is True
 
+    dry_run = Args.sync_dry_run is True
+
     if not destination.startswith('/'):
       destination = f"/{destination}"
     
@@ -41,14 +43,13 @@ class Sync():
     
     destination_folder = self.fsapi.create_folder_recursive(destination)
 
-    file_list = await self.loop_folder(source_path, destination_folder)
+    file_list = await self.loop_folder(source_path, destination_folder, dry_run= dry_run)
 
     Log.info(f"found {len(file_list)} files to sync")
 
     await self.proceed_to_sync( file_list, delete_original= delete_original )
 
-
-    if delete_original:
+    if delete_original and not dry_run:
       all_folders_to_remove = []
       for root, dirs, files in os.walk(source_path):
         for dirname in dirs:
@@ -70,7 +71,7 @@ class Sync():
     Log.info('Completed!')
 
 
-  async def loop_folder(self, source_path: str, destination_folder: TGFolder):
+  async def loop_folder(self, source_path: str, destination_folder: TGFolder, dry_run= False):
     Log.info(f"loop folder '{source_path}'")
 
     ret = []
@@ -91,18 +92,11 @@ class Sync():
         item = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
         if item is None:
 
-          ret.append( (filename_full_path, destination_file_path ) )
+          if dry_run:
+            Log.info(f"'{filename_full_path}' may be processed, skip as per dry_run")
+          else:
+            ret.append( (filename_full_path, destination_file_path ) )
           
-          # self.fsapi.create_folder_recursive(destination_file_path, skip_last = True)
-
-          # service = await self.fsapi.create_file_with_content(destination_file_path)
-
-          # if service:
-          #   stat = os.stat(filename_full_path)
-          #   Log.info(f"'{destination_file_path}' not exists, creating... ({stat.st_size} bytes)")
-          #   f = open( filename_full_path, 'rb' )
-          #   await service.execute(f)
-          #   f.close()
         else:
           Log.debug(f"'{destination_file_path}' already exists -> '{item.id}'")
         
