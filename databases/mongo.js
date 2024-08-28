@@ -64,7 +64,7 @@ EntryS.post('save', async (doc) => {
 
 
 const EntryM = Mongoose.model(ENTRY_NAME, EntryS);
-const PartM = Mongoose.model('Part', PartS);
+// const PartM = Mongoose.model('Part', PartS);
 const TelegramDataM = Mongoose.model(TELEGRAM_DATA_NAME, TelegramDataS);
 
 class MongoDB {
