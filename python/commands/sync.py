@@ -19,18 +19,20 @@ class Sync():
 
   async def sync_command(self, Args):
     
-    if not Args.source:
+    if not Args.sync_source:
       raise Exception("You must specify source folder")
 
-    if not Args.destination:
+    if not Args.sync_destination:
       raise Exception("You must specify destination folder")
 
-    if not os.path.exists( Args.source ) or not os.path.isdir(Args.source):
-      raise Exception(f"Invalid source folder: '{Args.source}'")
+    if not os.path.exists( Args.sync_source ) or not os.path.isdir(Args.sync_source):
+      raise Exception(f"Invalid source folder: '{Args.sync_source}'")
   
 
     source_path = Args.sync_source
     destination = Args.sync_destination
+
+    delete_original = Args.sync_delete_source is True
 
     if not destination.startswith('/'):
       destination = f"/{destination}"
@@ -43,7 +45,27 @@ class Sync():
 
     Log.info(f"found {len(file_list)} files to sync")
 
-    await self.proceed_to_sync( file_list )
+    await self.proceed_to_sync( file_list, delete_original= delete_original )
+
+
+    if delete_original:
+      all_folders_to_remove = []
+      for root, dirs, files in os.walk(source_path):
+        for dirname in dirs:
+
+          dirname_full_path = os.path.join(root, dirname)
+
+          all_folders_to_remove.append( dirname_full_path )
+      
+      def sorting_key(item):
+        return len(item)
+      all_folders_to_remove.sort(key= sorting_key, reverse= True)
+
+      for folder_to_remove in all_folders_to_remove:
+        try:
+          os.rmdir( folder_to_remove )
+        except Exception as e:
+          Log.warn(f"cannot remove '{folder_to_remove}'")
 
     Log.info('Completed!')
 
@@ -87,28 +109,33 @@ class Sync():
     return ret
 
   
-  async def proceed_to_sync(self, file_list):
+  async def proceed_to_sync(self, file_list, delete_original= False):
 
     for file in file_list:
       try:
-        await internal_task(file)
+        await internal_task(file, delete_original= delete_original)
       except Exception as e:
         traceback.print_exc()
         Log.error(e, exc_info=True)
 
 
-async def internal_task(item):
+async def internal_task(item, delete_original= False):
   destination_file_path = item[1]
   filename_full_path = item[0]
 
   root = getItem(ROOT_ID)
   fsapi = FSApiLib( root )
 
+  
+  fsapi.create_folder_recursive(destination_file_path, skip_last = True)
+  
   try:
+    service = await fsapi.create_file_with_content(destination_file_path, stop_if_exists= True)
+  except:
+    Log.warn(f"'{destination_file_path}' already exists, skip")
+    return
 
-    fsapi.create_folder_recursive(destination_file_path, skip_last = True)
-
-    service = await fsapi.create_file_with_content(destination_file_path)
+  try:
 
     if service:
       stat = os.stat(filename_full_path)
@@ -116,6 +143,9 @@ async def internal_task(item):
       f = open( filename_full_path, 'rb' )
       await service.execute(f)
       f.close()
+    if delete_original:
+      os.remove(filename_full_path)
+
   except Exception as e:
     exists = fsapi.exists(destination_file_path)
     if exists:

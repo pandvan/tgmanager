@@ -133,8 +133,8 @@ parser.add_argument('--sync_destination',
                     help='destination folder'
                     )
 parser.add_argument('--sync_delete_source',
-                    type = str,
-                    nargs='?',
+                    type = bool,
+                    action=argparse.BooleanOptionalAction,
                     help='delete files and folder after synced'
                     )
 

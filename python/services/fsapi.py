@@ -378,7 +378,7 @@ class FSApi():
 
     return service
 
-  async def create_file_with_content(self, path: str, callback = None):
+  async def create_file_with_content(self, path: str, stop_if_exists = False):
     paths = self.split_path(path)
     folder = self.get_last_folder(path, True)
 
@@ -421,6 +421,10 @@ class FSApi():
         Log.warn(f"already existing TEMPORARY file '{filename}' in '{folder.filename}'")
 
       if dbFile is not None and dbFile.id:
+
+        if stop_if_exists and dbFile.state == 'ACTIVE' :
+          raise Exception(f"file '{dbFile.filename}' already exists in '{folder.filename}'")
+
         dbFile = update_file(dbFile, TGFile(
           filename = filename,
           channel = channelid,
@@ -437,6 +441,8 @@ class FSApi():
           state = 'TEMP'
         ), folder.id, session= session)
 
+
+
         def on_stopped(*args):
           Log.warn(f"Process aborted, remove item: {dbFile.id} - {dbFile.filename}")
           removeItem(dbFile.id, session= session)
@@ -447,7 +453,7 @@ class FSApi():
 
       def on_complete_upload(*args):
 
-        newFileData = getItem(dbFile.id)
+        newFileData = getItem(dbFile.id, session= session)
         newFileData.state = 'ACTIVE'
         update_file(dbFile, newFileData, session= session)
 
