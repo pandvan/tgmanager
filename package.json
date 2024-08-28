@@ -4,7 +4,8 @@
   "description": "",
   "main": "telegram-manager.js",
   "scripts": {
-    "watch": "webpack --config webpack-config.js --watch"
+    "watch": "webpack --config webpack-config.js --watch",
+    "build": "webpack --config webpack-config.js"
   },
   "author": "fatshotty",
   "license": "ISC",
