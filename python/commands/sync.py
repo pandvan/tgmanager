@@ -94,11 +94,18 @@ class Sync():
         item = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
         if item is None:
 
-          if dry_run:
-            Log.info(f"'{filename_full_path}' may be processed, skip as per dry_run")
-          else:
-            Log.info( f"'{filename}' will be processed in '{destination_file_path}'")
-            ret.append( (filename_full_path, destination_file_path ) )
+          # TEMP: check without YEAR
+          import re
+          destination_file_path = re.sub("\\(([0-9]{4})\\)\\s", "", destination_file_path, flags=re.IGNORECASE)
+
+          item = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
+          if item is None:
+
+            if dry_run:
+              Log.info(f"'{filename_full_path}' may be processed, skip as per dry_run")
+            else:
+              Log.info( f"'{filename}' will be processed in '{destination_file_path}'")
+              ret.append( (filename_full_path, destination_file_path ) )
           
         else:
           Log.debug(f"'{destination_file_path}' already exists -> '{item.id}'")
