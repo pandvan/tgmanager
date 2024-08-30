@@ -109,7 +109,7 @@ class Sync():
             substitute = matchFilename.group() if matchFilename else None
 
             if year and substitute:
-              destination_file_path = destination_file_path.replace( substitute, f"{year} {d} " )
+              destination_file_path = destination_file_path.replace( substitute, f"{year} {substitute} " )
 
               item = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
 
