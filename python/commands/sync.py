@@ -4,7 +4,6 @@ import logging
 from services.database import getItem, TGFolder
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
-from multiprocessing.pool import ThreadPool
 
 Log = logging.getLogger('SYNC')
 
@@ -96,16 +95,32 @@ class Sync():
 
           # TEMP: check without YEAR
           import re
-          destination_file_path = re.sub("\\(([0-9]{4})\\)\\s", "", destination_file_path, flags=re.IGNORECASE)
+          destination_file_path = re.sub("\\s\\(([0-9]{4})\\)\\s\\-\\sS", " - S", destination_file_path, flags=re.IGNORECASE)
 
           item = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
           if item is None:
 
-            if dry_run:
-              Log.info(f"'{filename_full_path}' may be processed, skip as per dry_run")
-            else:
-              Log.info( f"'{filename}' will be processed in '{destination_file_path}'")
-              ret.append( (filename_full_path, destination_file_path ) )
+            # TEMP: also check with YEAR
+            
+            matchYear = re.search("(\\(\\d{4}\\))\\/Season \\d+\\/", destination_file_path)
+            year = matchYear.groups()[0] if matchYear else None
+
+            matchFilename = re.search( "\\-\\sS\\d+E\\d+\\s\\-" , filename )
+            substitute = matchFilename.group() if matchFilename else None
+
+            if year and substitute:
+              destination_file_path = destination_file_path.replace( substitute, f"{year} {d} " )
+
+              item = self.fsapi.exists(destination_file_path, state = 'ACTIVE')
+
+              Log.debug(f"check: '{destination_file_path}'")
+
+            if item is None:
+              if dry_run:
+                Log.info(f"'{filename_full_path}' may be processed, skip as per dry_run")
+              else:
+                Log.info( f"'{filename}' will be processed in '{destination_file_path}'")
+                ret.append( (filename_full_path, destination_file_path ) )
           
         else:
           Log.debug(f"'{destination_file_path}' already exists -> '{item.id}'")
