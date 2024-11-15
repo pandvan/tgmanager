@@ -77,7 +77,7 @@ async def on_message(_, message: Message):
       parentFolder = ROOT_ID
     
     # use user account in order to retrieve correct file_ID
-    client = TGClients.next_client(True)
+    client = TGClients.next_client(False)
 
     msg = await client.get_message(channel_id, message.id)
 

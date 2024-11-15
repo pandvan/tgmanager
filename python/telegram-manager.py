@@ -23,14 +23,14 @@ async def start():
   init_database()
 
   for user in Config.telegram.users:
-    session = get_tg_session(user.id)
-    Log.debug(f"got session from DB for user: {user.id} -> {session is not None}")
-    client = await TGClients.add_client(user.id, user.api_id, user.api_hash, getattr(user, 'bot_token', None), session)
+    session = get_tg_session(user.name)
+    Log.debug(f"got session from DB for user: {user.name} -> {session is not None}")
+    client = await TGClients.add_client(user.name, user.api_id, user.api_hash, getattr(user, 'bot_token', None), session)
     if session is None:
-      Log.info(f"save session for user {user.id}")
+      Log.info(f"save session for user {user.name}")
       tgsess = await client.get_session()
       save_tg_session( client._name, tgsess )
-    Log.info(f"Telegram is authenticated for user {user.id}")
+    Log.info(f"Telegram is authenticated for user {user.name}")
 
   
   TGClients.check()
@@ -54,6 +54,13 @@ async def start():
 
     strm = Strm()
     strm.create(initialize.Args)
+  
+  elif initialize.Args.delete:
+    # enable sync command
+    from commands.deleting import Deleting
+
+    deleting = Deleting()
+    await deleting.delete_command(initialize.Args)
 
   else:
 

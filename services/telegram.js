@@ -198,6 +198,18 @@ class TelegramApi {
     });
   }
 
+  async editMessage(channel, msgId, caption) {
+    return await this.apiCall('messages.editMessage', {
+      peer: {
+        '_': 'inputPeerChannel',
+        channel_id: channel.id,
+        access_hash: channel.hash
+      },
+      id: msgId,
+      message: caption
+    });
+  }
+
 
 }
 

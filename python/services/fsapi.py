@@ -1,5 +1,5 @@
 import logging
-from services.database import TGFolder, TGFile, TGPart, start_session, list_file_in_folder_recursively, getItem, removeItem, create_file, update_file, getItemByFilename, getChildren, create_folder, remap, update_folder
+from services.database import TGFolder, TGFile, TGPart, start_session, list_file_in_folder_recursively, getItem, removeItem, purgeItem, create_file, update_file, getItemByFilename, getChildren, create_folder, remap, update_folder
 from constants import ROOT_ID
 from configuration import Config
 from services.telegram import TelegramApi
@@ -48,11 +48,11 @@ class FSApi():
     return res
   
 
-  def exists(self, path: str, parent_id: str = ROOT_ID, state = None):
+  def exists(self, path: str, parent_id: str = ROOT_ID, state = None, session= None):
     if parent_id == ROOT_ID:
       item = self.root_folder
     else:
-      item = getItem(parent_id)
+      item = getItem(parent_id, session= session)
     
     paths = self.split_path(path)
 
@@ -60,7 +60,7 @@ class FSApi():
       childName = paths[0]
       paths = paths[1:]
       item_id = item.id
-      item = getItemByFilename(childName, item_id)
+      item = getItemByFilename(childName, item_id, session= session)
       if ( item is None ):
         return None
 
@@ -416,11 +416,16 @@ class FSApi():
 
       uploader = Uploader(client, filename, channelid)
 
-      dbFile = getItemByFilename(filename, folder.id, session= session)
+      dbFile = getItemByFilename(filename, folder.id, state = None, session= session)
       if dbFile is not None and dbFile.state == 'TEMP':
-        Log.warn(f"already existing TEMPORARY file '{filename}' in '{folder.filename}'")
+        Log.warning(f"already existing TEMPORARY file '{filename}' in '{folder.filename}'")
 
       if dbFile is not None and dbFile.id:
+
+        if dbFile.state == 'DELETED':
+          # in case of the same file has been previously deleted
+          # we need to force deletion in order to avoid duplicated files
+          purgeItem(dbFile.id, session= session)
 
         if stop_if_exists and dbFile.state == 'ACTIVE' :
           raise Exception(f"file '{dbFile.filename}' already exists in '{folder.filename}'")
@@ -442,10 +447,9 @@ class FSApi():
         ), folder.id, session= session)
 
 
-
         def on_stopped(*args):
           Log.warn(f"Process aborted, remove item: {dbFile.id} - {dbFile.filename}")
-          removeItem(dbFile.id, session= session)
+          purgeItem(dbFile.id, session= session)
 
         uploader.on('stopped', on_stopped)
         uploader.on('error', on_stopped)
@@ -453,12 +457,10 @@ class FSApi():
 
       def on_complete_upload(*args):
 
-        newFileData = getItem(dbFile.id, session= session)
+        newFileData = getItem(dbFile.id, state = None, session= session)
         newFileData.state = 'ACTIVE'
         update_file(dbFile, newFileData, session= session)
 
-        if callback is not None:
-          callback(dbFile)
         Log.info(f"File has been processed: [{dbFile.id}] '{dbFile.filename}'")
 
       uploader.on('completeUpload', on_complete_upload)
@@ -502,7 +504,7 @@ class FSApi():
     
     return uploader
 
-  async def delete(self, path):
+  async def delete(self, path, simulate = False):
 
     paths = self.split_path(path)
     folder = self.get_last_folder(path, True)
@@ -524,18 +526,32 @@ class FSApi():
 
       if (item.type == 'folder'):
 
+        Log.debug(f"collecting all files in '{item.filename}' and its subfolders")
         all_folders_and_files = list_file_in_folder_recursively(item.id, session= session)
+
+        Log.info(f"got {len(all_folders_and_files)} items to be deleted")
 
         for file_or_folder in all_folders_and_files:
 
           if file_or_folder.type == 'folder':
-            removeItem(file_or_folder.id, session= session)
+            if simulate:
+              Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
+            else:
+              Log.debug(f"'{file_or_folder.filename}' [{file_or_folder.id}] will be deleted")
+              removeItem(file_or_folder.id, session= session)
           else:
-            await self.remove_file(file_or_folder, session)
+            if simulate:
+              Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
+            else:
+              Log.debug(f"'{file_or_folder.filename}' [{file_or_folder.id}] and its parts will be deleted")
+              await self.remove_file(file_or_folder, session)
 
         itemdata = remap(item)
-        removeItem(itemdata.id, session= session)
-        Log.info(f"folder '{itemdata.filename}' and all its content have been deleted")
+        if simulate:
+          Log.info(f"'{itemdata.filename}' may be deleted, skip as per dry_run")
+        else:
+          removeItem(itemdata.id, session= session)
+          Log.info(f"folder '{itemdata.filename}' and all its content have been deleted")
 
       else:
         await self.remove_file(item, session)

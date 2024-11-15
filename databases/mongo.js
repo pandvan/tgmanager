@@ -185,7 +185,7 @@ class MongoDB {
 
   async updateFolder(folder, data, parent) {
     // check existing
-    if ( await this.checkExist(data.filename || folder.filename, parent || data.parentfolder, 'folder', data.id || folder.id) ) {
+    if ( await this.checkExist(data.filename || folder.filename, parent || data.parentfolder || folder.parentfolder, 'folder', data.id || folder.id) ) {
       throw `Folder '${data.filename}' already exists in '${parent}'`;
     }
   
@@ -253,7 +253,7 @@ class MongoDB {
 
   async updateFile(file, data, parent) {
     // check existing
-    if ( await this.checkExist(file.filename, parent || file.parentfolder, file.type, file.id) ) {
+    if ( await this.checkExist(data.filename || file.filename, parent || data.parentfolder || file.parentfolder, file.type, file.id) ) {
       throw `File '${file.filename}' already exists in '${parent}'`;
     }
   

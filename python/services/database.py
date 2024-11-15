@@ -55,6 +55,9 @@ class TGItem:
 
     self.path = path
   
+  def is_deleted(self):
+    return self.state == 'DELETED'
+  
   def content_length(self):
     if self.content is not None:
       return len( self.content )
@@ -192,7 +195,6 @@ def remap(ret):
   item.content = ret['content'] if 'content' in ret else None
   item.state = ret['state']
 
-
   if 'path' in ret:
     coll = {}
     for p in ret['path']:
@@ -209,19 +211,26 @@ def remap(ret):
     
     item.path = paths
 
-
   return item
 
 
-def getItem(id, session = None):
-  ret = DB.find_one({'id': id}, session= session)
+def getItem(id, state = 'ACTIVE', session = None):
+  filter = {'id': id}
+  if state is not None:
+    filter['state'] = state
+
+  ret = DB.find_one(filter, session= session)
+
   if ret is not None:
     return remap(ret)
 
-def getChildren(folderId, type = None, ordered = False, session= None):
+def getChildren(folderId, type = None, state = 'ACTIVE', ordered = False, session= None):
   filter = {
     'parentfolder': folderId
   }
+
+  if state is not None:
+    filter['state'] = state
 
   if type is not None:
     filter['type'] = type
@@ -241,17 +250,48 @@ def removeItem(itemId, session = None):
   if itemId == ROOT_ID:
     raise Exception('Cannot remote root folder')
 
-  ret = DB.delete_one({'id': itemId}, session = session)
+  item = getItem(itemId, session= session)
+
+  if item.type == 'folder':
+    list = raw_list_items_in_folder(item.id, session= session)
+    ids = []
+    for it in list:
+      ids.append(it['id'])
+    ret = DB.update_many({'$in': ids}, { '$set': {'state': 'DELETED'} }, session = session)
+  else:
+    # ret = DB.delete_one({'id': itemId}, session = session)
+    ret = DB.update_one({'id': itemId}, { '$set': {'state': 'DELETED'} }, session = session)
   return ret
 
-def getItemByFilename(filename: str, parent: str = None, type: str = None, session= None):
+def purgeItem(itemId, session = None):
+  if itemId == ROOT_ID:
+    raise Exception('Cannot remote root folder')
+
+  item = getItem(itemId, 'DELETED', session= session)
+
+  if item.type == 'folder':
+    list = raw_list_items_in_folder(item.id, session= session)
+    ids = []
+    for it in list:
+      ids.append(it['id'])
+    ret = DB.delete_many({'$in': ids}, session = session)
+  else:
+    # ret = DB.delete_one({'id': itemId}, session = session)
+    ret = DB.delete_one({'id': itemId}, session = session)
+  
+  return ret
+
+
+def getItemByFilename(filename: str, parent: str = None, type: str = None, state = 'ACTIVE', session= None):
   filter = {}
   if parent is not None: 
     filter['parentfolder'] = parent
   
-  
   fn = re.sub("/", "-", filename) #, flags=re.IGNORECASE)
   filter['filename'] = fn
+
+  if state is not None:
+    filter['state'] = state
 
   if type is not None:
     filter['type'] = type
@@ -339,7 +379,7 @@ def update_folder(folder: TGFolder, data: TGFolder, parent = None, session = Non
   folder.type = 'folder'
   folder.filename = fn
   folder.parentfolder = parent or data.parentfolder or folder.parentfolder
-  folder.state = 'ACTIVE'
+  folder.state = data.state or folder.state or 'ACTIVE'
 
   # we can modify relative channel for this folder
   folder.channel = data.channel if data.channel is not None else folder.channel
@@ -356,8 +396,14 @@ def create_file(file: TGFile, parent = None, session = None):
 
   if (not file.content or file.content_length() <= 0) and not file.channel:
     raise Exception(f"File {file.filename} has no channel")
+  
+  _parent_folder = getItem(parent or file.parentfolder)
+  if _parent_folder is None:
+    raise Exception("specify parent folder")
 
-
+  if _parent_folder.is_deleted():
+    raise Exception(f"parent folder {_parent_folder.filename} is deleted")
+    
   fn = re.sub("/", "-", file.filename, flags=re.IGNORECASE)
   file.filename = fn
   file.parentfolder = parent or file.parentfolder
@@ -371,15 +417,6 @@ def create_file(file: TGFile, parent = None, session = None):
     if type( file.content ) is not bytes:
       file.content = base64.b64decode( file.content )
   
-  # parts = None
-  # _parts = file.parts
-  # if _parts is not None:
-  #   parts = []
-  #   for p in _parts:
-  #     parts.append( p.toDB() )
-  
-  # file.parts = parts
-    
   if not file.id:
     file.id = get_UUID()
     
@@ -404,7 +441,6 @@ def update_file(file: TGFile, data: TGFile, parent = None, session = None):
   if not file.id:
     raise Exception(f"Cannot update file without id")
 
-
   insert = data.toDB()
   insert['id'] = file.id
 
@@ -417,15 +453,6 @@ def update_file(file: TGFile, data: TGFile, parent = None, session = None):
   insert['channel'] = data.channel if data.channel is not None else file.channel
 
   insert['mtime'] = NOW()
-
-  # parts = None
-  # _parts = data.parts or file.parts
-  # if _parts is not None:
-  #   parts = []
-  #   for p in _parts:
-  #     parts.append( vars(p) )
-
-  # insert['parts'] = parts
 
   if data.content:
     if type( data.content ) is not bytes:
@@ -547,8 +574,8 @@ def check_transaction():
   except Exception as e:
     CAN_TRANSACTION = False
 
-def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False, session= None):
 
+def raw_list_items_in_folder(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False, state = None, level = 0, session= None):
   aggregation = []
   if ( skip_files ):
     aggregation.append({
@@ -570,20 +597,40 @@ def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_f
       }
     })
   
+
+  lookupData = { 
+    'from': 'entries', 
+    'startWith': '$parentfolder', 
+    'connectFromField': 'parentfolder', 
+    'connectToField': 'id', 
+    'as': 'path'
+  }
+
+  if level > 0:
+    lookupData['maxDepth'] = level
+
   aggregation.append({
-    '$graphLookup': { 
-      'from': 'entries', 
-      'startWith': '$parentfolder', 
-      'connectFromField': 'parentfolder', 
-      'connectToField': 'id', 
-      'as': 'path'
-    }
+    '$graphLookup': lookupData
   })
 
-  if ( parent and parent != ROOT_ID ):
+  if ( parent is not None and parent != ROOT_ID ):
     aggregation.append({
       '$match': {
         'path.id': parent
+      }
+    })
+  
+  
+  
+  if state is not None:
+    aggregation.append({
+      '$match': {
+        'path.state': state
+      }
+    })
+    aggregation.append({
+      '$match': {
+        'state': state
       }
     })
   
@@ -595,6 +642,13 @@ def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_f
     })
 
   ret = DB.aggregate(aggregation, session= session)
+  return ret
+
+
+def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False, state = None, level = 0, session= None):
+
+  ret = raw_list_items_in_folder(parent, skip_files, skip_folders, ordered, state, level, session)
+  
   result = []
   for i in ret:
     item = remap(i)
