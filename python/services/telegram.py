@@ -57,22 +57,23 @@ class TelegramApi:
     self.username = me.username
     self.is_bot = me.is_bot
 
-    fn_call = raw.functions.help.GetAppConfig(
-      hash = 0
-    )
+    if not self.is_bot:
+      fn_call = raw.functions.help.GetAppConfig(
+        hash = 0
+      )
 
-    user_config = await self.api.invoke( fn_call )
-    config = user_config.config
-    value = config.value
-    for obj in value:
-      if self.is_premium:
-        if obj.key == 'upload_max_fileparts_premium':
-          self.max_upload_parts = int(obj.value.value )
-          break
-      else:
-        if obj.key == 'upload_max_fileparts_default':
-          self.max_upload_parts = int(obj.value.value )
-          break
+      user_config = await self.api.invoke( fn_call )
+      config = user_config.config
+      value = config.value
+      for obj in value:
+        if self.is_premium:
+          if obj.key == 'upload_max_fileparts_premium':
+            self.max_upload_parts = int(obj.value.value )
+            break
+        else:
+          if obj.key == 'upload_max_fileparts_default':
+            self.max_upload_parts = int(obj.value.value )
+            break
 
   @staticmethod
   def generate_id():
