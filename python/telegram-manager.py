@@ -59,15 +59,6 @@ async def start():
 
     # start tool
 
-    if initialize.Args.strm is True:
-      Log.info('Starting STRM service')
-      # enable sync command
-      from commands.strm import Strm
-
-      strm = Strm()
-      strm.create(initialize.Args)
-
-
     if Config.http.enabled:
       # start http server
       Log.info('starting http server')
@@ -82,6 +73,15 @@ async def start():
     if Config.telegram.bot_token:
       from tgbot import Bot
       await Bot.start()
+    
+
+    if initialize.Args.strm is True:
+      Log.info('Starting STRM service')
+      # enable sync command
+      from commands.strm import Strm
+
+      strm = Strm()
+      strm.create(initialize.Args)
     
 
     # root = getItem(ROOT_ID)

@@ -25,6 +25,8 @@ class Strm():
     source_folder = Args.strm_source or Config.strm.source
     self.url = Args.strm_url or Config.strm.url
 
+    Log.debug(f"using flags: {recreate_folder}, {source_folder}, {self.url}")
+
     Log.info(f"Using folder: {local_folder}")
 
     if recreate_folder and os.path.exists(local_folder):
@@ -51,6 +53,8 @@ class Strm():
 
     if not os.path.exists(local_folder):
       os.makedirs(local_folder)
+    
+    Log.info("Listing all files")
 
     files = list_file_in_folder_recursively(parent_id, skip_folders = True, skip_files = False, ordered = True)
 
@@ -61,11 +65,12 @@ class Strm():
       if ( file.state != 'ACTIVE'):
         continue
     
-      folders = [file.filename]
+      folders = []
       if file.path:
         for p in file.path:
           folders.append(p.filename if p.filename != 'root' else '')
-      #folders.reverse()
+      
+      folders.append(file.filename)
 
 
       self.createFile(file, local_folder, '/'.join(folders) )
