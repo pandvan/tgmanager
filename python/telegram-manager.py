@@ -48,13 +48,6 @@ async def start():
     sync = Sync()
     await sync.sync_command(initialize.Args)
   
-  elif initialize.Args.strm is True:
-    # enable sync command
-    from commands.strm import Strm
-
-    strm = Strm()
-    strm.create(initialize.Args)
-  
   elif initialize.Args.delete:
     # enable sync command
     from commands.deleting import Deleting
@@ -65,6 +58,15 @@ async def start():
   else:
 
     # start tool
+
+    if initialize.Args.strm is True:
+      Log.info('Starting STRM service')
+      # enable sync command
+      from commands.strm import Strm
+
+      strm = Strm()
+      strm.create(initialize.Args)
+
 
     if Config.http.enabled:
       # start http server

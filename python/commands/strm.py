@@ -24,16 +24,20 @@ class Strm():
     local_folder = Args.strm_destination or Config.strm.destination
     source_folder = Args.strm_source or Config.strm.source
     self.url = Args.strm_url or Config.strm.url
-    
+
+    Log.info(f"Using folder: {local_folder}")
 
     if recreate_folder and os.path.exists(local_folder):
+      Log.info(f"deleting existing folder {local_folder}")
       shutil.rmtree(local_folder)
     
     if not os.path.exists(local_folder):
+      Log.info(f"creating folder {local_folder}")
       os.makedirs(local_folder)
 
     source = getItem(ROOT_ID)
     if source_folder:
+      Log.info(f"get source folder {source_folder}")
       source = self.fsapi.get_last_folder(source_folder)
     if not source:
       raise Exception(f"invalid source folder '{source_folder}'")
@@ -49,6 +53,8 @@ class Strm():
       os.makedirs(local_folder)
 
     files = list_file_in_folder_recursively(parent_id, skip_folders = True, skip_files = False, ordered = True)
+
+    Log.info(f"populating {len(files)} files")
 
     for file in files:
 
