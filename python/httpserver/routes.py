@@ -161,6 +161,7 @@ async def download_file(request: web.Request):
     try:
 
       await service.execute( stream, True )
+      return
   
     except ConnectionResetError:
       service.stop()
