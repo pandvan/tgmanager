@@ -31,6 +31,7 @@ class Bot():
     client = TelegramApi('bot', current.api_id, current.api_hash, Config.telegram.bot_token)
 
     await client.start()
+    await client.get_me()
 
     Log.info(f"Main bot is: {client.username}")
 
