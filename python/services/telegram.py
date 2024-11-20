@@ -47,7 +47,7 @@ class TelegramApi:
 
     except Exception as E:
       Log.warning(E)
-      if E.ID == 'AUTH_KEY_UNREGISTERED':
+      if E.CODE == 401:
         Log.warning('session has been expired!')
         self.api = Client(
           name = self.api.name,
