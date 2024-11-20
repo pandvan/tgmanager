@@ -26,9 +26,13 @@ class Bot():
 
     current = TGClients.next_client()
 
+    Log.info(f"Loading main bot associated to {current.name}")
+
     client = TelegramApi('bot', current.api_id, current.api_hash, Config.telegram.bot_token)
 
     await client.start()
+
+    Log.info(f"Main bot is: {client.username}")
 
     _filters = (
         filters.document
