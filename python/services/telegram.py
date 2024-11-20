@@ -42,7 +42,22 @@ class TelegramApi:
     )
 
   async def start(self):
-    await self.api.start()
+    try:
+      await self.api.start()
+
+    except Exception as E:
+      if E.ID == 'AUTH_KEY_UNREGISTERED':
+        Log.warning('session has been expired!')
+        self.api = Client(
+          name = self.api.name,
+          api_id = self.api.api_id,
+          api_hash = self.api.api_hash,
+          bot_token = self.api.bot_token,
+          no_updates = not self.api.bot_token,
+          in_memory = True,
+          max_concurrent_transmissions = 5
+        )
+        await self.api.start()
   
   async def get_session(self):
     return await self.api.export_session_string()

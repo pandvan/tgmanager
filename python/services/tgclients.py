@@ -12,6 +12,7 @@ class TGClients():
   @staticmethod
   async def add_client(name: str, apiId: str, apiHash: str, bot = None, session = None):
     client = TelegramApi(name, apiId, apiHash, bot, session = session)
+    Log.info(f"Loading tg-client: {name}")
     await client.start()
     await client.get_me()
     Log.info(f"Login OK for user: {client.username}, is premium: {client.is_premium} and can upload {client.max_upload_parts} parts")
