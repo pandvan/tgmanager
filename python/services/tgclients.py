@@ -3,11 +3,13 @@ import logging
 
 Log = logging.getLogger('TGApi')
 
-Clients = []
+UserClients = []
+BotClients = []
 
 class TGClients():
 
-  current_client = -1
+  current_user_client = -1
+  current_bot_client = -1
 
   @staticmethod
   async def add_client(name: str, apiId: str, apiHash: str, bot = None, session = None):
@@ -16,31 +18,46 @@ class TGClients():
     await client.start()
     await client.get_me()
     Log.info(f"Login OK for user: {client.username}, is premium: {client.is_premium} and can upload {client.max_upload_parts} parts")
-    Clients.append( client )
+
+    if client.is_bot:
+      BotClients.append(client)
+    else:
+      UserClients.append(client)
+
     return client
 
 
   @staticmethod
   def get_all_clients():
-    return Clients
+    return UserClients + BotClients
   
   @staticmethod
   def check():
-    for client in Clients:
-      if client.is_bot == False:
-        return True
-    
-    raise Exception("At least one client for upload is needed")
+    if len(UserClients) > 0:
+      return True
+    else:
+      raise Exception("At least one user client for upload is needed")
   
   @staticmethod
-  def next_client(useBot = False):
-    TGClients.current_client += 1
-    if TGClients.current_client > len(Clients) - 1:
-      TGClients.current_client = 0
-    client = Clients[ TGClients.current_client ]
+  def next_client(download = False):
 
-    if client.is_bot and not useBot:
-      return TGClients.next_client(useBot)
+    client = None
 
-    Log.info(f"using client: {client.username}")
+    if download:
+      TGClients.current_bot_client += 1
+      if TGClients.current_bot_client > (len(BotClients) - 1):
+        TGClients.current_bot_client = 0
+      client = BotClients[ TGClients.current_bot_client ]
+    
+
+    if client is None:
+
+      TGClients.current_user_client += 1
+      if TGClients.current_user_client > (len(UserClients) - 1):
+        TGClients.current_user_client = 0
+      client = UserClients[ TGClients.current_user_client ]
+
+
+    Log.info(f"using client: {client.username} (Bot: {client.is_bot} for download: {download})")
+    
     return client
