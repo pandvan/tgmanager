@@ -168,6 +168,7 @@ async def download_file(request: web.Request):
     except ConnectionResetError:
       service.stop()
       Log.warn("connection aborted")
+      return
     
   
   return web.Response(
@@ -224,6 +225,7 @@ async def upload_file(request: web.Request):
         except ConnectionResetError:
           service.stop()
           Log.warn("connection aborted")
+          return
 
   
   return web.Response(
