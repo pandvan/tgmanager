@@ -132,7 +132,7 @@ class TelegramApi:
     return message
 
 
-  async def get_session(self, dc):
+  async def get_media_session(self, dc):
     ms = self.api.media_sessions.get(dc, None)
 
     if ms is None:
@@ -190,7 +190,7 @@ class TelegramApi:
     _api = self.api
 
     if dc is not None:
-      _api = await self.get_session(dc)
+      _api = await self.get_media_session(dc)
 
     location = raw.types.InputDocumentFileLocation(
       id=id,
