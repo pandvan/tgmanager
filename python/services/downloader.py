@@ -102,7 +102,7 @@ class Downloader():
   
       Log.debug(f"ready for download, range: {start}-${end}")
 
-      await self.perform_stream(media.filedata.media_id, media.filedata.access_hash, media.filedata.file_reference, None, start, end, destination, awaited)
+      await self.perform_stream(media.filedata.media_id, media.filedata.access_hash, media.filedata.file_reference, media.filedata.dc_id, start, end, destination, awaited)
 
       if ( self.aborted ):
         break
@@ -125,10 +125,12 @@ class Downloader():
 
     total_file_downloaded = 0
 
-    Log.debug(f"stream from {start} to {end}");
+    offset = int(offset)
+
+    Log.debug(f"stream from {start} to {end}, starting from {offset}")
 
     while (True):
-      tgFile = await self.client.get_file(id, hash, reference, offset, CHUNK)
+      tgFile = await self.client.get_file(id, hash, reference, offset=offset, limit=CHUNK, dc=dc)
   
       firstByte = 0
       lastByte = CHUNK
@@ -140,8 +142,12 @@ class Downloader():
       if ( offset + len(tgFile.bytes) >= end ):
         lastByte = end - offset
         needStop = True
+      
+      firstByte = int(firstByte)
+      lastByte = int(lastByte)
   
       buf = tgFile.bytes[firstByte : lastByte]
+      # Log.debug(f"send buffer: from {offset} ({len(buf)} bytes)")
       if awaited:
         resp = await destination.write( buf )
       else:

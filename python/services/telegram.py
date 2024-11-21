@@ -1,5 +1,7 @@
 from pyrogram import Client, raw
 from pyrogram.file_id import FileId
+from pyrogram.session import Session, Auth
+from pyrogram.errors import AuthBytesInvalid
 from configuration import Config
 from constants import UPLOAD_CHUNK
 import random
@@ -130,7 +132,67 @@ class TelegramApi:
     return message
 
 
-  async def get_file(self, id, hash, reference, offset = 0, limit = UPLOAD_CHUNK * 2):
+  async def get_session(self, dc):
+    ms = self.api.media_sessions.get(dc, None)
+
+    if ms is None:
+      if dc != await self.api.storage.dc_id():
+        Log.debug(f"creating and switch new media_session for {dc}")
+        ms = Session(
+          self.api,
+          dc,
+          await Auth(
+              self.api, dc, await self.api.storage.test_mode()
+          ).create(),
+          await self.api.storage.test_mode(),
+          is_media=True,
+        )
+        await ms.start()
+
+        for _ in range(6):
+          exported_auth = await self.api.invoke(
+            raw.functions.auth.ExportAuthorization(dc_id=dc)
+          )
+
+          try:
+            await ms.invoke(
+              raw.functions.auth.ImportAuthorization(
+                id=exported_auth.id, bytes=exported_auth.bytes
+              )
+            )
+            break
+          except AuthBytesInvalid:
+            Log.debug(
+              f"Invalid authorization bytes for DC {dc}"
+            )
+            continue
+        else:
+          await ms.stop()
+          raise AuthBytesInvalid
+      else:
+        Log.debug(f"creating a new media_session for {dc}")
+        ms = Session(
+          self.api,
+          dc,
+          await self.api.storage.auth_key(),
+          await self.api.storage.test_mode(),
+          is_media=True,
+        )
+        await ms.start()
+      # Log.debug(f"Created media session for DC {dc}")
+      self.api.media_sessions[dc] = ms
+    
+    return ms
+
+
+  async def get_file(self, id, hash, reference, offset = 0, dc = None, limit = UPLOAD_CHUNK * 2):
+
+    _api = self.api
+
+    if dc is not None:
+      Log.debug(f"try to get sessione for dc: {str(dc)}")
+      _api = await self.get_session(dc)
+
     location = raw.types.InputDocumentFileLocation(
       id=id,
       access_hash=hash,
@@ -144,7 +206,7 @@ class TelegramApi:
       limit = limit,
       precise = False
     )
-    return await self.api.invoke(file_call)
+    return await _api.invoke(file_call)
   
   async def send_file_parts(self, id, num_part, total_parts, file_bytes):
     file = raw.functions.upload.SaveBigFilePart(

@@ -43,7 +43,7 @@ class TGClients():
 
     client = None
 
-    if download:
+    if download and len(BotClients) > 0:
       TGClients.current_bot_client += 1
       if TGClients.current_bot_client > (len(BotClients) - 1):
         TGClients.current_bot_client = 0
