@@ -369,6 +369,8 @@ class FSApi():
 
     if end == -1:
       end = totalsize - 1
+    
+    totalsize = int(totalsize)
 
     client = TGClients.next_client(True)
 
