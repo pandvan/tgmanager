@@ -190,7 +190,6 @@ class TelegramApi:
     _api = self.api
 
     if dc is not None:
-      Log.debug(f"try to get sessione for dc: {str(dc)}")
       _api = await self.get_session(dc)
 
     location = raw.types.InputDocumentFileLocation(
