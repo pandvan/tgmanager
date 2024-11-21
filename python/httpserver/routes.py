@@ -130,6 +130,8 @@ async def download_file(request: web.Request):
       body=f"file is not a valid file"
     )
 
+  totalsize = int(totalsize)
+
   range_header = request.headers.get("Range", 0)
 
   if range_header:
