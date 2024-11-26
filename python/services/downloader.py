@@ -64,6 +64,8 @@ class Downloader():
     # Calculate the full range stack to be downloaded
     while( True ):
 
+      Log.info(f"check part: {currentIndex} of {len(self.parts)}")
+
       file = self.parts[currentIndex]
       fileToAdd = None
 
@@ -80,7 +82,7 @@ class Downloader():
           fileToAdd['end'] = file.size - ( (currentSizePosition + file.size) - self.range_end ) + 1
           files.append(fileToAdd)
           break
-
+ 
         else:
           fileToAdd['end'] = file.size
           files.append(fileToAdd)
