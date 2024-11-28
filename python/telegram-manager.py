@@ -2,7 +2,7 @@ import initialize
 import traceback
 from configuration import Config
 from constants import ROOT_ID
-from services.database import init_database, save_tg_session, get_tg_session, getItem
+from services.database import init_database, save_tg_session, get_tg_session, close_connection, addEvent
 from services.tgclients import TGClients
 from services.fsapi import FSApi
 from pyrogram import idle
@@ -88,7 +88,6 @@ async def start():
     # fsapi = FSApi(root)
     # await fsapi.copy('/media/tvshows/Chicago P.D. (2014)', '/media/tvprograms')
 
-
     await idle()
 
 
@@ -100,6 +99,8 @@ async def close():
     session = await client.get_session()
     Log.debug(f"save session for user {client._name}")
     save_tg_session( client._name, session )
+  
+  close_connection()
 
 
 loop = asyncio.get_event_loop()

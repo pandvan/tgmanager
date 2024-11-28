@@ -3,7 +3,9 @@ import datetime
 from configuration import Config
 from urllib.parse import urlparse
 from constants import ROOT_ID, ROOT_NAME
+import threading
 import re
+import time
 import base64
 import random
 import string
@@ -11,6 +13,9 @@ import string
 import logging
 
 Log = logging.getLogger('DB')
+
+
+FN_CALLBACK = []
 
 
 def NOW():
@@ -123,6 +128,9 @@ class TGFile(TGItem):
     self.mtime = mtime or NOW()
   
 
+def addEvent(fn):
+  FN_CALLBACK.append(fn)
+
 def init_database():
   Log.info(f"init database")
 
@@ -155,6 +163,11 @@ def init_database():
     fld.filename = ROOT_NAME
     create_folder(fld, None )
 
+  listen()
+
+
+def close_connection():
+  mongo.close()
 
 def start_session():
   session = mongo.start_session()
@@ -656,3 +669,30 @@ def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_f
       item.path.reverse()
     result.append( item ) 
   return result
+
+
+def listen():
+  listen_task = threading.Thread(target=watch_changes)
+  listen_task.start()
+
+def watch_changes():
+  with DB.watch() as stream:
+    while stream.alive:
+        change = stream.try_next()
+        # Note that the ChangeStream's resume token may be updated
+        # even when no changes are returned.
+        Log.debug(f"Current resume token: {stream.resume_token}")
+        if change is not None:
+            Log.debug(f"Change document: {change}")
+            for fn in FN_CALLBACK:
+              fn(
+                change['operationType'],
+                remap(change['fullDocument']),
+                str(change['fullDocument']['_id'])
+              )
+            continue
+        # We end up here when there are no recent changes.
+        # Sleep for a while before trying again to avoid flooding
+        # the server with getMore requests when no changes are
+        # available.
+        time.sleep(5)
