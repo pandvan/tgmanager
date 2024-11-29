@@ -683,7 +683,15 @@ def watch_changes():
         # even when no changes are returned.
         Log.debug(f"Current resume token: {stream.resume_token}")
         if change is not None:
+            
+            Log.info("---")
             Log.info(f"Change document: {change}")
+            Log.info("---")
+
+            if not 'fullDocument' in change:
+              Log.warning(f"changes have not 'fullDocument'")
+              continue
+
             for fn in FN_CALLBACK:
               fn(
                 change['operationType'],
