@@ -130,9 +130,10 @@ class Strm():
     if doc.type == 'folder':
       # new folder created
       if not os.path.exists(destination_full_path):
+        Log.info(f"creating folder: {destination_full_path}")
         os.makedirs(destination_full_path)
     else:
       # new file created
-      Log.debug(f"creating file: {self.local_folder} -> {destination_full_path}")
+      Log.info(f"creating file: {destination_full_path}")
       self.createFile(doc, self.local_folder, relative_path)
     
