@@ -1,5 +1,6 @@
 from pymongo import MongoClient, TEXT
 import datetime
+import traceback
 from configuration import Config
 from urllib.parse import urlparse
 from constants import ROOT_ID, ROOT_NAME
@@ -167,7 +168,8 @@ def init_database():
 
 
 def close_connection():
-  mongo.close()
+  if mongo is not None:
+    mongo.close()
 
 def start_session():
   session = mongo.start_session()
@@ -693,11 +695,16 @@ def watch_changes():
               continue
 
             for fn in FN_CALLBACK:
-              fn(
-                change['operationType'],
-                remap(change['fullDocument']),
-                str(change['fullDocument']['_id'])
-              )
+              try:
+                fn(
+                  change['operationType'],
+                  remap(change['fullDocument']),
+                  str(change['fullDocument']['_id'])
+                )
+              except Exception as e:
+                Log.error(f"Error while handling changes")
+                traceback.print_exc()
+                Log.error(e, exc_info=True)
             continue
         # We end up here when there are no recent changes.
         # Sleep for a while before trying again to avoid flooding

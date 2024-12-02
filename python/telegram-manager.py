@@ -105,6 +105,15 @@ async def close():
 
 loop = asyncio.get_event_loop()
 
+import sys
+def my_except_hook(exctype, value, traceback_):
+  Log.error("--- ERROR ---")
+  Log.error(f"{exctype}, {value}")
+  Log.error( '\n'.join(traceback.format_tb(traceback_)) )
+  Log.error("--- ERROR ---")
+  sys.__excepthook__(exctype, value, traceback_)
+sys.excepthook = my_except_hook
+
 if __name__ == "__main__":
   Log.info('INIT')
   try:
