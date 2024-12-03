@@ -46,8 +46,8 @@ export function Item(props) {
         <small>{size ? Utils.humanFileSize(size, true, 2, true) : ''}</small>
       </div>
       <div className="col-2">
-        <Badge pill bg="light" text="dark">
-          <span className="d-none d-md-block">{item.type}</span>
+        <Badge pill bg="light" text="dark" className="d-none d-md-block">
+          <span>{item.type}</span>
         </Badge>
           {(() => {
             if (item.type != 'folder') {
