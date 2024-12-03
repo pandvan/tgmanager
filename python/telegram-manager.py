@@ -7,6 +7,7 @@ from services.tgclients import TGClients
 from services.fsapi import FSApi
 from pyrogram import idle
 from aiohttp import web
+from tgbot import Bot
 import asyncio
 import logging
 
@@ -71,7 +72,6 @@ async def start():
       Log.info(f"HTTP is running on {Config.http.host}:{Config.http.port}")
     
     if Config.telegram.bot_token:
-      from tgbot import Bot
       await Bot.start()
     
 
@@ -88,7 +88,9 @@ async def start():
     # fsapi = FSApi(root)
     # await fsapi.copy('/media/tvshows/Chicago P.D. (2014)', '/media/tvprograms')
 
-    await idle()
+    # await idle()
+
+    Log.info("Application started!")
 
 
 async def close():
@@ -103,21 +105,36 @@ async def close():
   close_connection()
 
 
-loop = asyncio.get_event_loop()
 
 import sys
-def my_except_hook(exctype, value, traceback_):
-  Log.error("--- ERROR ---")
-  Log.error(f"{exctype}, {value}")
-  Log.error( '\n'.join(traceback.format_tb(traceback_)) )
-  Log.error("--- ERROR ---")
+async def async_except_hook(exctype, value, traceback_):
+  # Log.error("--- ERROR ---")
+  # Log.error(f"{exctype}, {value}")
+  # Log.error( '\n'.join(traceback.format_tb(traceback_)) )
+  # Log.error("--- ERROR ---")
   sys.__excepthook__(exctype, value, traceback_)
-sys.excepthook = my_except_hook
+  if Config.telegram.notify is not None and Config.telegram.notify.channel is not None:
+    res = await Bot.send_message(Config.telegram.notify.channel, '\n'.join(("- ERROR", f"{exctype}, {value}", "ERROR -")))
+    Log.debug(f"notification sent: {res}")
+
+def _except_hook(exctype, value, traceback_):
+  loop.run_until_complete(async_except_hook(exctype, value, traceback_))
+sys.excepthook = _except_hook
+
+def exception_handler(loop, context):
+  Log.error('---- ERROR ----->')
+  Log.error(context['exception'])
+  Log.error('<---- ERROR -----')
+
+
+loop = asyncio.get_event_loop()
+loop.set_exception_handler(exception_handler)
 
 if __name__ == "__main__":
   Log.info('INIT')
   try:
       loop.run_until_complete(start())
+      loop.run_forever()
   except KeyboardInterrupt:
       pass
   except Exception as err:

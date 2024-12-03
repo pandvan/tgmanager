@@ -39,6 +39,9 @@ def load_config(args):
         "min_size": uploadMinSize,
         "channel": getYamlValue(yamlFile, ['telegram', 'upload', 'channel'] )
       },
+      "notify": {
+        "channel": getYamlValue(yamlFile, ['telegram', 'upload', 'channel'] )
+      },
       "bot_token": getYamlValue(yamlFile, ['telegram','bot_token'])
     },
     "data": os.path.realpath( os.path.join( CWD, args.data or getYamlValue(yamlFile, ['data']) or './data/' ) ),
@@ -68,6 +71,7 @@ def load_config(args):
   Config = SimpleNamespace(**__Config)
   Config.telegram = SimpleNamespace(**Config.telegram)
   Config.telegram.upload = SimpleNamespace(**Config.telegram.upload)
+  Config.telegram.notify = SimpleNamespace(**Config.telegram.notify)
 
   users = []
   for user in Config.telegram.users:

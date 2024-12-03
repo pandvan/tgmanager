@@ -5,6 +5,7 @@ from configuration import Config
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
 import shutil
+import base64
 
 Log = logging.getLogger("Strm")
 
@@ -99,7 +100,10 @@ class Strm():
     if ( file.content is not None and file.content_length() > 0 ):
 
       f = open( destination_full_path, "wb")
-      f.write( file.content )
+      if type(file.content) is not bytes:
+        f.write( base64.b64decode(file.content) )
+      else:
+        f.write( file.content )
       f.close()
 
     else:

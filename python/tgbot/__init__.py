@@ -48,6 +48,12 @@ class Bot():
 
     Log.info("Started")
   
+  @staticmethod
+  async def send_message(channel, text):
+    Log.debug(f"sending message via botto channel {channel}")
+    msg = await client.api.send_message(channel, text)
+    return msg is not None
+    
 
 async def on_message(_, message: Message):
   # wait for 2 seconds
