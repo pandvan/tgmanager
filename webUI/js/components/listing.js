@@ -93,11 +93,11 @@ export default function Listing(props) {
           {showActions && (
             <div className="col-3 text-end" >
               <div className="row">
-                {selectedItems.length == 1 && (<div className="col text-center" ><FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit()} /></div>)}
-                <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" /></div>
-                <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" /></div>
-                {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" onClick={() => setShowOverlayMerge(true)}  /></div>}
-                <div className="col text-center" ><FontAwesomeIcon icon={faTrash} className="clickable-item" onClick={() => setShowOverlayDelete(true)} /></div>
+                {selectedItems.length == 1 && (<div className="col text-center" title="rename"><FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit()} /></div>)}
+                <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" title="copy"/></div>
+                <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" title="move"/></div>
+                {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" title="merge" onClick={() => setShowOverlayMerge(true)}  /></div>}
+                <div className="col text-center" ><FontAwesomeIcon icon={faTrash} className="clickable-item" title="delete" onClick={() => setShowOverlayDelete(true)} /></div>
               </div>
             </div> 
           )}

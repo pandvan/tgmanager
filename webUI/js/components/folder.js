@@ -52,13 +52,13 @@ export function Item(props) {
           {(() => {
             if (item.type != 'folder') {
               if (iconType == 'video') {
-                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFileVideo} /></span>
+                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFileVideo} title={item.type}/></span>
               } else if (iconType == 'audio') {
-                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFileAudio} /></span>
+                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFileAudio} title={item.type}/></span>
               } else if (iconType == 'image') {
-                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFileImage} /></span>
+                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFileImage} title={item.type}/></span>
               } else {
-                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFile}  /></span>
+                return <span className="d-block d-md-none"><FontAwesomeIcon icon={faFile} title={item.type} /></span>
               }
             }
           })()}
@@ -67,7 +67,7 @@ export function Item(props) {
       <div className="col-1 text-end">
         <div className="row">
           <div className="col text-center" >
-            {item.type != 'folder' && <FontAwesomeIcon icon={faDownload} className="clickable-item ms-2" onClick={() => onDownload(item)} />}
+            {item.type != 'folder' && <FontAwesomeIcon icon={faDownload} className="clickable-item ms-2" title="download" onClick={() => onDownload(item)} />}
             {/* <FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit(item)} />
             <FontAwesomeIcon icon={faCopy} className="clickable-item ms-2" />
             <FontAwesomeIcon icon={faRightLeft} className="clickable-item ms-2" />

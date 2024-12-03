@@ -686,9 +686,9 @@ def watch_changes():
         Log.debug(f"Current resume token: {stream.resume_token}")
         if change is not None:
             
-            Log.info("---")
-            Log.info(f"Change document: {change}")
-            Log.info("---")
+            Log.debug("---")
+            Log.debug(f"Change document: {change}")
+            Log.debug("---")
 
             if not 'fullDocument' in change:
               Log.warning(f"changes have not 'fullDocument'")
