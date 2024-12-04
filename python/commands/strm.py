@@ -109,7 +109,7 @@ class Strm():
 
     else:
       strm_txt = self.url.replace('{file_id}', file.id)
-      filename = Path(destination_full_path).stem
+      filename = os.path.join(dir_path, Path(file.filename).stem)
       f = open( f"{filename}.strm", "w")
       f.write( strm_txt )
       f.close()
