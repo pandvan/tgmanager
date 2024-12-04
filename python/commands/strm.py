@@ -5,6 +5,7 @@ from configuration import Config
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
 import shutil
+from pathlib import Path
 import base64
 
 Log = logging.getLogger("Strm")
@@ -108,7 +109,8 @@ class Strm():
 
     else:
       strm_txt = self.url.replace('{file_id}', file.id)
-      f = open( f"{destination_full_path}.strm", "w")
+      filename = Path(destination_full_path).stem
+      f = open( f"{filename}.strm", "w")
       f.write( strm_txt )
       f.close()
 
