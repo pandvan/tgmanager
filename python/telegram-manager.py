@@ -90,7 +90,7 @@ async def start():
 
     # await idle()
 
-    Log.info("Application started!")
+  Log.info("Application started!")
 
 
 async def close():
@@ -134,7 +134,10 @@ if __name__ == "__main__":
   Log.info('INIT')
   try:
       loop.run_until_complete(start())
-      loop.run_forever()
+      if Config.http.enabled:
+        # keep running if http is enabled
+        loop.run_forever()
+
   except KeyboardInterrupt:
       pass
   except Exception as err:
