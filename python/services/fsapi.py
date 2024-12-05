@@ -473,7 +473,7 @@ class FSApi():
 
         chl = channelid
 
-        newFileData = getItem(dbFile.id, session= session)
+        newFileData = getItem(dbFile.id, state= None, session= session)
         newFileData.channel = chl or newFileData.channel
 
         if portion.content is not None:
