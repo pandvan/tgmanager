@@ -2,6 +2,9 @@ from pyrogram import Client, raw
 from pyrogram.file_id import FileId
 from pyrogram.session import Session, Auth
 from pyrogram.errors import AuthBytesInvalid
+from telethon.sessions import StringSession
+from telethon import TelegramClient
+from utils import tele_to_pyro_me
 from configuration import Config
 from constants import UPLOAD_CHUNK
 import random
@@ -32,35 +35,56 @@ class TelegramApi:
     self.api_hash = api_hash
     self.bot_token = bot_token
 
+    self.session = session
+
+
+
+  async def start(self):
+
+    firstLogin = True
+
+    if self.session is None and self.bot_token is None:
+      # try to login USER via telethon, because pyrogram has login problem
+      _temp_client = TelegramClient(
+        StringSession(None),
+        self.api_id,
+        self.api_hash,
+        device_model = 'tg-manager'
+      )
+      await _temp_client.start()
+      _temp_me = await _temp_client.get_me()
+      t_session = _temp_client.session.save()
+
+      self.session = await tele_to_pyro_me(t_session, self.api_id, _temp_me)
+
+      await _temp_client.disconnect()
+
+      firstLogin = False
+
     self.api = Client(
-      name = name,
-      api_id = api_id,
-      api_hash = api_hash,
-      session_string = session,
-      bot_token = bot_token,
-      no_updates = not bot_token,
+      name = self._name,
+      api_id = self.api_id,
+      api_hash = self.api_hash,
+      session_string = self.session,
+      bot_token = self.bot_token,
+      no_updates = not self.bot_token,
       in_memory = True,
       max_concurrent_transmissions = 5
     )
 
-  async def start(self):
     try:
+
       await self.api.start()
 
     except Exception as E:
       Log.warning(E)
       if E.CODE == 401:
         Log.warning('session has been expired!')
-        self.api = Client(
-          name = self.api.name,
-          api_id = self.api.api_id,
-          api_hash = self.api.api_hash,
-          bot_token = self.api.bot_token,
-          no_updates = not self.api.bot_token,
-          in_memory = True,
-          max_concurrent_transmissions = 5
-        )
-        await self.api.start()
+        if firstLogin:
+          self.session = None
+          return await self.start()
+        else:
+          raise E
   
   async def get_session(self):
     return await self.api.export_session_string()

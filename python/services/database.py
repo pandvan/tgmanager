@@ -164,7 +164,7 @@ def init_database():
     fld.filename = ROOT_NAME
     create_folder(fld, None )
 
-  listen()
+  # listen()
 
 
 def close_connection():
