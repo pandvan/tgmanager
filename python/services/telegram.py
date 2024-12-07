@@ -267,7 +267,7 @@ class TelegramApi:
       media = media,
       random_id = int( rand_id ),
       silent = True,
-      message = ''
+      message = f"fileName: {filename}" # save the original fileName
     )
 
     return await self.api.invoke(fn_call)
