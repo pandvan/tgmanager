@@ -474,6 +474,16 @@ def update_file(file: TGFile, data: TGFile, parent = None, session = None):
       insert['content'] = base64.b64decode(data.content)
     else:
       insert['content'] = data.content
+  
+  elif data.parts is None:
+    if file.parts is not None:
+      insert['parts'] = []
+      for p in file.parts:
+        insert['parts'].append(p.toDB())
+      
+      # force reset the original channel, in case of 'rename' from WEbUI
+      # WebUI set `channel` to empty string: this resets the channel in DB
+      insert['channel'] = data.channel or file.channel
 
   Log.debug(f"updating file into DB: {insert['id']} - {insert}")
   DB.update_one({'id': insert['id']}, { '$set': insert}, session = session)
@@ -492,6 +502,28 @@ def get_file_by_message_id_and_channel(msgId: int, channel: str, session= None):
   ret = DB.find_one(filter, session= session)
   if ret is not None:
     return remap(ret)
+
+def get_file_by_filename_and_channel(filename: str, channel: str, msgid: int = None, session= None):
+
+  fn = re.sub("/", "-", filename, flags=re.IGNORECASE)
+  regexp = re.compile( f"^{fn}", re.IGNORECASE)
+
+  filter = {
+    'type': { '$not': { '$eq': 'folder' } },
+    'channel': channel,
+    'state': { '$not': { '$eq': 'TEMP' } },
+    'filename': regexp
+  }
+  
+  if msgid is not None:
+    filter['parts.0'] = { '$exists': True }
+    filter['parts.messageid'] = msgid
+
+
+  ret = DB.find_one(filter, session= session)
+  if ret is not None:
+    return remap(ret)
+  pass
 
 def get_folders_by_channel(channelId: str, session= None):
   filter = {

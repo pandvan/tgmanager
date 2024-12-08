@@ -9,7 +9,7 @@ from pyrogram.types import Message
 from pyrogram.handlers import MessageHandler
 from services.telegram import TelegramApi
 from services.tgclients import TGClients
-from services.database import TGPart, TGFile, get_file_by_message_id_and_channel, get_folders_by_channel, create_file
+from services.database import TGPart, TGFile, get_file_by_filename_and_channel, update_file, get_folders_by_channel, create_file
 
 Log = logging.getLogger("BOT")
 
@@ -68,15 +68,16 @@ async def on_message(_, message: Message):
 
   channel_id = str(message.chat.id)
 
-  Log.info(f"got a file in channel {channel_id}")
+  Log.info(f"got file '{media.file_name}' in channel: {channel_id}")
 
-  dbFile = get_file_by_message_id_and_channel(message.id, channel_id)
+  # dbFile = get_file_by_message_id_and_channel(message.id, channel_id)
+  dbFile = get_file_by_filename_and_channel(media.file_name, channel_id)
 
-  if dbFile is not None:
+  if dbFile is not None and dbFile.state == 'ACTIVE':
     Log.info(f"file '{media.file_name}' already saved in DB")
   else:
 
-    Log.info(f"file '{media.file_name}' will be stored in DB")
+    Log.debug(f"file '{media.file_name}' will be processed")
 
     folders = get_folders_by_channel(channel_id)
     if len(folders) > 0:
@@ -92,7 +93,7 @@ async def on_message(_, message: Message):
 
     msg = await client.get_message(channel_id, message.id)
 
-    dbFile = create_file( TGFile(
+    newdatafile = TGFile(
       filename = media.file_name,
       parts = [ TGPart(
         messageid = msg.id,
@@ -105,9 +106,19 @@ async def on_message(_, message: Message):
       parentfolder = parentFolder,
       type = media.mime_type or mimetypes.guess_type(media.file_name)[0] or 'application/octet-stream',
       content = None,
-      channel = channel_id
-    ), parentFolder)
+      channel = channel_id,
+      state = 'ACTIVE'
+    )
 
-    Log.info(f"'{media.file_name}' has been correctly saved into DB: {dbFile.id}")
+    if dbFile is not None:
+      # update
+      Log.info(f"file will be updated because already exists")
+      Log.debug(dbFile.toDB())
+      dbFile = update_file( dbFile, newdatafile, parentFolder)
+    else:
+      # create
+      dbFile = create_file( newdatafile, parentFolder)
+
+    Log.info(f"'{media.file_name}' has been correctly saved into DB: {dbFile.id}'")
 
 
