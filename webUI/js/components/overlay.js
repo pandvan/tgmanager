@@ -207,7 +207,7 @@ export function OverlayRename(props) {
   }, []);
 
   return (
-    <Overlay isShown={isShown} stopClose={true} title="Merge items" onClose={_onClose} onConfirm={renameItem} >
+    <Overlay isShown={isShown} stopClose={true} title="Rename" onClose={_onClose} onConfirm={renameItem} >
       <h6>You are <span className="fst-italic">modifying</span> {itemToModify.type == 'folder' ? 'folder' : 'file'}</h6>
       <Form onSubmit={renameItem}>
         <Form.Group className="mb-3">

@@ -66,7 +66,7 @@ async def on_message(_, message: Message):
   time.sleep(2)
 
 
-  channel_id = message.chat.id
+  channel_id = str(message.chat.id)
 
   Log.info(f"got a file in channel {channel_id}")
 
@@ -76,7 +76,7 @@ async def on_message(_, message: Message):
     Log.info(f"file '{media.file_name}' already saved in DB")
   else:
 
-    Log.debug(f"file '{media.file_name}' will be stored in DB")
+    Log.info(f"file '{media.file_name}' will be stored in DB")
 
     folders = get_folders_by_channel(channel_id)
     if len(folders) > 0:
@@ -107,6 +107,7 @@ async def on_message(_, message: Message):
       content = None,
       channel = channel_id
     ), parentFolder)
-    Log.info(f"'{media.file_name}' has been correctly saved into DB: {dbFile.id}'")
+
+    Log.info(f"'{media.file_name}' has been correctly saved into DB: {dbFile.id}")
 
 
