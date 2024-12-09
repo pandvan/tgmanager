@@ -150,9 +150,9 @@ async def internal_task(item, delete_original= False):
   
   try:
     service = await fsapi.create_file_with_content(destination_file_path, stop_if_exists= True)
-  except:
-    Log.warning(f"'{destination_file_path}' already exists, skip")
-    return
+  except Exception as E:
+    Log.error(E)
+    Log.warning(f"'{destination_file_path}' cannot be synced due to: {E}")
 
   try:
 

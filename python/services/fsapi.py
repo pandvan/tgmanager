@@ -425,36 +425,39 @@ class FSApi():
       if dbFile is not None and dbFile.id:
 
         if dbFile.state == 'DELETED':
+          Log.warning(f"file '{dbFile.filename}' has been previously deleted from '{folder.filename}'")
           # in case of the same file has been previously deleted
           # we need to force deletion in order to avoid duplicated files
           purgeItem(dbFile.id, session= session)
+          
 
         if stop_if_exists and dbFile.state == 'ACTIVE' :
           raise Exception(f"file '{dbFile.filename}' already exists in '{folder.filename}'")
 
-        dbFile = update_file(dbFile, TGFile(
-          filename = filename,
-          channel = channelid,
-          type = mimetypes.guess_type(filename)[0] or 'application/octet-stream',
-          parentfolder = folder.id
-        ), folder.id, session= session)
-      else:
-        # create a new temp file
-        dbFile = create_file(TGFile(
-          filename = filename,
-          channel = channelid,
-          type = mimetypes.guess_type(filename)[0],
-          parentfolder = folder.id,
-          state = 'TEMP'
-        ), folder.id, session= session)
+      #   dbFile = update_file(dbFile, TGFile(
+      #     filename = filename,
+      #     channel = channelid,
+      #     type = mimetypes.guess_type(filename)[0] or 'application/octet-stream',
+      #     parentfolder = folder.id
+      #   ), folder.id, session= session)
+      # else:
+
+      # create a new temp file for the uploading file
+      dbFile = create_file(TGFile(
+        filename = filename,
+        channel = channelid,
+        type = mimetypes.guess_type(filename)[0],
+        parentfolder = folder.id,
+        state = 'TEMP'
+      ), folder.id, session= session)
 
 
-        def on_stopped(*args):
-          Log.warn(f"Process aborted, remove item: {dbFile.id} - {dbFile.filename}")
-          purgeItem(dbFile.id, session= session)
+      def on_stopped(*args):
+        Log.warning(f"Process aborted, remove item: {dbFile.id} - {dbFile.filename}")
+        purgeItem(dbFile.id, session= session)
 
-        uploader.on('stopped', on_stopped)
-        uploader.on('error', on_stopped)
+      uploader.on('stopped', on_stopped)
+      uploader.on('error', on_stopped)
                     
 
       def on_complete_upload(*args):
