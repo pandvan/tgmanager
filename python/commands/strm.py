@@ -100,6 +100,8 @@ class Strm():
 
     if ( file.content is not None and file.content_length() > 0 ):
 
+      Log.debug(f"creating file with content: '{filepath}'")
+
       f = open( destination_full_path, "wb")
       if type(file.content) is not bytes:
         f.write( base64.b64decode(file.content) )
@@ -108,6 +110,7 @@ class Strm():
       f.close()
 
     else:
+      Log.debug(f"creating file with strm: '{filepath}' ({file.id})")
       strm_txt = self.url.replace('{file_id}', file.id)
       filename = os.path.join(dir_path, Path(file.filename).stem)
       f = open( f"{filename}.strm", "w")
@@ -120,7 +123,7 @@ class Strm():
       return False
     
     # new document has been created
-    Log.info(f"a new document detected: {doc.type} -> {doc.filename}")
+    Log.info(f"a new document detected: {doc.type} -> '{doc.filename}' ({doc.id})")
 
     relative_path = FSApiLib.build_path(doc)
 
@@ -140,6 +143,6 @@ class Strm():
         os.makedirs(destination_full_path)
     else:
       # new file created
-      Log.info(f"creating file: {destination_full_path}")
+      Log.info(f"creating file: {relative_path} ({doc.id})")
       self.createFile(doc, self.local_folder, relative_path)
     
