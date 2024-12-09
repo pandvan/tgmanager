@@ -69,6 +69,17 @@ export async function mergeFiles(items) {
   return true;
 }
 
+export async function createFolder(currentFolder, foldername) {
+  const rsp = await fetch(`/folders/${currentFolder.id}/folder/${foldername}`, {
+    method: 'POST'
+  });
+  if (rsp.status < 200 || rsp.status > 299) {
+    throw Error('response error');
+  }
+  return true;
+}
+
+
 export async function modifyFolder(folder, data) {
   const rsp = await fetch(`/folders/${folder.id}`, {
     method: 'PUT',

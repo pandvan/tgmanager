@@ -52,6 +52,8 @@ async def get_folder(request: web.Request):
   return web.json_response( items )
 
 @routes.post(r"/folders/{fld_id}/folder/{foldername}")
+@routes.post(r"/folders/{fld_id}/folder/")
+@routes.post(r"/folders/{fld_id}/folder")
 async def create_folder(request: web.Request):
 
   fld_id = request.match_info["fld_id"]
@@ -70,13 +72,23 @@ async def create_folder(request: web.Request):
       status=422,
       body=f"requested item is not a valid parent folder"
     )
+
+  data = {}
+  
+  try:
+    data = await request.json()
+  except Exception as E:
+    pass
   
   foldername = request.match_info["foldername"]
   if not foldername:
-    return web.Response(
-      status=422,
-      body="foldername is missing"
-    )
+    if 'foldername' in data:
+      foldername = data['foldername']
+    if not foldername:
+      return web.Response(
+        status=422,
+        body="foldername is missing"
+      )
   
   path = FSApiLib.build_path(parentfolder)
   folder_path = path + '/' + foldername
@@ -224,7 +236,7 @@ async def upload_file(request: web.Request):
       
         except ConnectionResetError:
           service.stop()
-          Log.warn("connection aborted")
+          Log.warning("connection aborted")
           return
 
   

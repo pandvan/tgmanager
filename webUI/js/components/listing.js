@@ -3,9 +3,10 @@ import useAppState from '../state';
 import BreadCrumbs from './breadcrumbs';
 import {Folder} from './folder';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCopy, faObjectGroup, faPen, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faCopy, faFolderPlus, faObjectGroup, faPen, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { faRightLeft } from '@fortawesome/free-solid-svg-icons/faRightLeft';
 import { OverlayDelete, OverlayMerge, OverlayRename } from './overlay';
+import { createFolder } from '../utils';
 
 export default function Listing(props) {
   const navigation = useAppState((state) => state.navigation);
@@ -45,6 +46,19 @@ export default function Listing(props) {
       setCurrentFolder(cf)
     }, 100);
   }, [currentFolder]);
+
+  const onCreateFolder = useCallback(async () => {
+    const resp = prompt("Insert folder name");
+    if (!resp) return;
+    try {
+      createFolder(currentFolder, resp);
+      alert('Operation completed');
+      reloadFolder();
+    } catch(e) {
+      alert('error: cannot create folder')
+    }
+
+  }, [currentFolder, reloadFolder])
 
   const onEdit = useCallback(() => {
     setShowOverlayRename(true);
@@ -87,20 +101,22 @@ export default function Listing(props) {
     <div className="row">
       <div className="col-12" >
         <div className="row">
-          <div className={!showActions ? 'col-12' : 'col-9'} >
+          <div className="col-9" >
             <BreadCrumbs navigation={navigation} navigate={navigate} />
           </div>
-          {showActions && (
-            <div className="col-3 text-end" >
-              <div className="row">
+          <div className="col-3 text-end" >
+            <div className="row">
+              <div className="col text-center" title="rename"><FontAwesomeIcon icon={faFolderPlus} className="clickable-item ms-2" onClick={() => onCreateFolder()} /></div>
+              {showActions && (
+                <>
                 {selectedItems.length == 1 && (<div className="col text-center" title="rename"><FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit()} /></div>)}
                 <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" title="copy"/></div>
                 <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" title="move"/></div>
                 {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" title="merge" onClick={() => setShowOverlayMerge(true)}  /></div>}
                 <div className="col text-center" ><FontAwesomeIcon icon={faTrash} className="clickable-item" title="delete" onClick={() => setShowOverlayDelete(true)} /></div>
-              </div>
-            </div> 
-          )}
+              </>)}
+            </div>
+          </div> 
         </div>
         <div className="row border-top">
           <div className="col-12" >
