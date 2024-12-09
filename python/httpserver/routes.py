@@ -1,7 +1,7 @@
 import os
 from aiohttp import web
 import mimetypes
-from services.database import TGFile, TGFolder, getItem, getItemByFilename, update_file, removeItem, update_folder
+from services.database import TGFile, TGFolder, start_session, getItem, getItemByFilename, update_file, removeItem, update_folder
 from constants import ROOT_ID
 from services.fsapi import FSApi as FSApiLib
 from configuration import CWD
@@ -413,7 +413,11 @@ async def rename_folder(request: web.Request):
       body=f"requested item is not a folder"
     )
 
-  data = await request.json()
+  data = {}
+  try:
+    data = await request.json()
+  except Exception as E:
+    pass
 
   newData = TGFolder(
     filename = data['filename'] if 'filename' in data and data['filename'] else folder.filename,
@@ -462,9 +466,51 @@ async def rename_file(request: web.Request):
   return web.json_response( newFileData.toDB(True) )
 
 
-# @routes.post(r"/files/{file_id}/move/{fld_id}")
-# async def move_folder(request: web.Request):
-#   pass
+@routes.post(r"/folders/{fld_id}/move")
+async def move_items_into_folder(request: web.Request):
+  fld_id = request.match_info["fld_id"]
+
+  if not fld_id:
+    Log.error(f"no folder found with given ID: {fld_id}")
+    return web.Response(
+      status=400,
+      body=f"invalid folder id"
+    )
+
+  folder = getItem(fld_id)
+  if not folder or folder.type != 'folder':
+    Log.error(f"specified ID is not folder or not exists")
+    return web.Response(
+      status=422,
+      body=f"requested item is not a folder"
+    )
+
+  data = {}
+  try:
+    data = await request.json()
+  except Exception as E:
+    pass
+
+  ids = data['items'] if 'items' in data else []
+
+  (session, transaction) = start_session()
+
+  with transaction:
+    for id in ids:
+      item = getItem(id, session= session)
+
+      if item is not None:
+        if item.type == 'folder':
+          update_folder(item, item, parent = fld_id, session = session)
+        else:
+          update_file(item, item, fld_id, session = session)
+      else:
+        Log.warning(f"item not found with id: {id}")
+  
+  return web.json_response( {'ok': True} )
+
+
+  
 
 # @routes.post(r"/files/{file_id}/move/{fld_id}")
 # async def move_file(request: web.Request):

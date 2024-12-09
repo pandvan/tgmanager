@@ -4,6 +4,9 @@ import * as Utils from '../utils';
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGripLines } from '@fortawesome/free-solid-svg-icons';
+import BreadCrumbs from './breadcrumbs';
+import { Folder } from './folder';
+import useAppState from '../state';
 
 
 export function Overlay(props) {
@@ -242,37 +245,14 @@ export function OverlayRename(props) {
 
 }
 
-export function OverlayCreateFolder(props) {
+export function OverlayMove(props) {
 
-  const {item, onClose} = props;
+  const {items, onClose} = props;
   const [isShown, setShown] = useState(true);
-
-  const [itemToModify, setItemToModify] = useState(item);
-  const filenameRef = useRef(null);
-  const typeRef = useRef(null);
-  const channelRef = useRef(null);
-
-  const [[filename, setFilename], [channel, setChannel], [type, setType]] = (() => {
-    return [useState(itemToModify.filename), useState(itemToModify.channel), useState(itemToModify.type)]
-  })();
-
-  const createFolder = useCallback(async () => {
-    let error = false;
-    try {
-      if ( filename.trim() ) {
-        if ( item.type == 'folder' ) {
-          const channel = channelRef.current.value
-          await Utils.modifyFolder(itemToModify, {filename: filename.trim(), channel: channel.trim()});
-        } else {
-          const type = typeRef.current.value
-          await Utils.modifyFile(itemToModify, {filename: filename.trim(), type: type.trim()});
-        }
-      }
-    } catch(e) {
-      error = true
-    }
-    _onClose(error, true);
-  }, [itemToModify, _onClose, filename, channel, type]);
+  const subNavigation = useAppState((state) => state.subNavigation);
+  const subNavigate = useAppState((state) => state.subNavigateFolder);
+  const subCurrentFolder = useAppState((state) => state.subNavigation[state.subNavigation.length - 1]);
+  const [itemsToMove] = useState(items);
 
   const _onClose = useCallback((err, operationConfirmed) => {
     setShown(false);
@@ -281,38 +261,28 @@ export function OverlayCreateFolder(props) {
     }
   }, []);
 
+  const onMove = useCallback(async () => {
+    let error = false;
+    try {
+      await Utils.moveFilesAndFolders(subCurrentFolder, itemsToMove);
+    } catch(e) {
+      error = true;      
+    }
+    _onClose(error, true);
+  }, [itemsToMove, subCurrentFolder]);
+
   return (
-    <Overlay isShown={isShown} stopClose={true} title="Create Folder" onClose={_onClose} onConfirm={renameItem} >
-      <h6>You are <span className="fst-italic">modifying</span> {itemToModify.type == 'folder' ? 'folder' : 'file'}</h6>
-      <Form onSubmit={renameItem}>
-        <Form.Group className="mb-3">
-          <Form.Label>Filename:</Form.Label>
-          <Form.Control type="text" ref={filenameRef} value={filename} onChange={() => setFilename(filenameRef.current.value)} />
-          <Form.Text className="text-muted" >
-            the name of the {itemToModify.type == 'folder' ? 'folder' : 'file'}
-          </Form.Text>
-        </Form.Group>
-        {itemToModify.type == 'folder' ? (
-          <Form.Group className="mb-3">
-            <Form.Label>channel:</Form.Label>
-            <Form.Control type="text" ref={channelRef} value={channel} onChange={() => setChannel(channelRef.current.value)} />
-            <Form.Text className="text-muted">
-              the referrer telegram channel for this folder
-            </Form.Text>
-          </Form.Group>
-        ) : (
-          <Form.Group className="mb-3">
-            <Form.Label>mime type:</Form.Label>
-            <Form.Control type="text" ref={typeRef} value={type} onChange={() => setType(typeRef.current.value)} />
-            <Form.Text className="text-muted">
-              the mime type of the file
-            </Form.Text>
-          </Form.Group>
-        )}
-      </Form>
+    <Overlay isShown={isShown} stopClose={true} title="Move items" onClose={_onClose} onConfirm={onMove} >
+      <h6>Move items into other folder</h6>
+      <div className="row">
+        <div className="col-12" >
+          <BreadCrumbs navigation={subNavigation} navigate={subNavigate} />
+        </div>
+      </div>
+      <div className="row">
+        <Folder source={subCurrentFolder} navigate={subNavigate} showFolders={true} showFiles={false} skipSelection={true} />
+      </div>
     </Overlay>
   )
-
-
-
+  
 }

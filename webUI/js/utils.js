@@ -101,3 +101,15 @@ export async function modifyFile(file, data) {
   }
   return true;
 }
+
+
+export async function moveFilesAndFolders(destFolder, items) {
+  const rsp = await fetch(`/folders/${destFolder.id}/move`, {
+    method: 'POST',
+    body: JSON.stringify({items: items.map(i => i.id)})
+  });
+  if (rsp.status < 200 || rsp.status > 299) {
+    throw Error('response error');
+  }
+  return true;
+}

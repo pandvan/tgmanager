@@ -1,11 +1,10 @@
 import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import * as Utils from '../utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPen, faTrashCan, faFolderClosed, faCopy, faRightLeft, faTrash, faDownload, faFileVideo, faFileAudio, faFileImage } from '@fortawesome/free-solid-svg-icons'
+import { faFolderClosed,faDownload, faFileVideo, faFileAudio, faFileImage } from '@fortawesome/free-solid-svg-icons'
 import { faFile } from '@fortawesome/free-regular-svg-icons'
 import useAppState from '../state';
 import { Badge } from 'react-bootstrap';
-import { OverlayDelete, OverlayRename } from './overlay';
 
 
 
@@ -68,10 +67,6 @@ export function Item(props) {
         <div className="row">
           <div className="col text-center" >
             {item.type != 'folder' && <FontAwesomeIcon icon={faDownload} className="clickable-item ms-2" title="download" onClick={() => onDownload(item)} />}
-            {/* <FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit(item)} />
-            <FontAwesomeIcon icon={faCopy} className="clickable-item ms-2" />
-            <FontAwesomeIcon icon={faRightLeft} className="clickable-item ms-2" />
-            <FontAwesomeIcon icon={faTrash} className="clickable-item ms-2" onClick={() => onDelete(item)}/> */}
           </div>
         </div>
       </div>
@@ -81,17 +76,16 @@ export function Item(props) {
 
 export function Folder(props) {
 
-  const {source, showFolders, showFiles} = props;
+  const {source, showFolders, showFiles, skipSelection} = props;
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
 
-  const navigateFolder = useAppState((state) => state.navigateFolder);
+  const navigateFolder = props.navigate;
   const selectedItems = useAppState((state) => state.selectedItems);
   const addSelectedItem = useAppState((state) => state.addSelectedItem);
   const removeSelectedItem = useAppState((state) => state.removeSelectedItem);
   const clearSelectedItems = useAppState((state) => state.clearSelectedItems);
-
 
   const reloadFolder = useCallback( async () => {
     const items = await Utils.getChildren(source.id);
@@ -100,7 +94,9 @@ export function Folder(props) {
     setItems( folders.concat( files ) );
     setLastSelectedIndex(-1);
     setLoading(false);
-    clearSelectedItems();
+    if (!props.skipSelection) {
+      clearSelectedItems();
+    }
   }, [source, setLastSelectedIndex, setLoading, clearSelectedItems]);
 
   useEffect(() => {
@@ -111,13 +107,16 @@ export function Folder(props) {
   const onDoubleClick = useCallback((e, item) => {
     if ( item.type == 'folder' ) {
       navigateFolder(item);
-      clearSelectedItems();
+      if (!props.skipSelection) {
+        clearSelectedItems();
+      }
     }
   }, [])
 
   const isSelected = useCallback((item) => !!selectedItems.find(i => i.id === item.id), [selectedItems]);
 
   const onSingleClick = useCallback((e, item) => {
+    if (props.skipSelection) return;
     const {metaKey, ctrlKey, shiftKey} = e;
     const isMultiSelection = metaKey || ctrlKey;
     const currentSelectedItemIndex = items.findIndex(i => i.id === item.id );
@@ -174,7 +173,7 @@ export function Folder(props) {
                 item={item} 
                 onDoubleClick={onDoubleClick} 
                 onSingleClick={onSingleClick} 
-                isHighlighted={isSelected(item)} 
+                isHighlighted={props.skipSelection ? false : isSelected(item)} 
                 onDownload={onDownload}
               />
             )

@@ -30,8 +30,11 @@ class Downloader():
 
     self.totalsize = 0
 
-    for part in file.parts:
-      self.totalsize += part.size
+    if file.parts is not None:
+      for part in file.parts:
+        self.totalsize += part.size
+    elif file.content and file.content_length() > 0:
+      self.totalsize = file.content_length()
     
   
   def stop(self):
@@ -45,7 +48,7 @@ class Downloader():
     currentSizePosition = 0
     currentIndex = 0
 
-    if self.file and self.file.content is not None and self.file.content_length():
+    if self.file and self.file.content is not None and self.file.parts is None: # and self.file.content_length():
       if awaited:
         await destination.write( file.content )
       else:
@@ -57,7 +60,7 @@ class Downloader():
         else:
           destination.write_eof()
       except Exception:
-        Log.warn(f"cannot write_eof")
+        Log.warning(f"cannot write_eof")
       
       return
 
