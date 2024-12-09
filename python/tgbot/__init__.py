@@ -9,7 +9,7 @@ from pyrogram.types import Message
 from pyrogram.handlers import MessageHandler
 from services.telegram import TelegramApi
 from services.tgclients import TGClients
-from services.database import TGPart, TGFile, get_file_by_filename_and_channel, update_file, get_folders_by_channel, create_file
+from services.database import TGPart, TGFile, get_file_by_message_id_and_channel, get_file_by_filename_and_channel, update_file, get_folders_by_channel, create_file
 
 Log = logging.getLogger("BOT")
 
@@ -70,11 +70,26 @@ async def on_message(_, message: Message):
 
   Log.info(f"got file '{media.file_name}' in channel: {channel_id}")
 
-  # dbFile = get_file_by_message_id_and_channel(message.id, channel_id)
+  # check message_id and channel:
+  # After each upload, we have already saved file in DB. So we must skip this
+  # message_id
+  dbFile = get_file_by_message_id_and_channel(message.id, channel_id)
+
+  if dbFile is not None: # and dbFile.state == 'ACTIVE': do not check `state` because each message is a new message
+    # portion of file is already present in DB and it is ACTIVE, skip
+    Log.info(f"file '{dbFile.filename}' with message {message.id} already exists in channel {channel_id}, skip")
+    return
+  
+  # the given file has not been uploaded; maybe it has been forwarded
+
+  # check filename in channel
+  # After each forwarded file in channel, we have to check its `filename` and `state`
+  # because we may want to re-forward a previuos-deleted file, se we need to check its `filename`
   dbFile = get_file_by_filename_and_channel(media.file_name, channel_id)
 
   if dbFile is not None and dbFile.state == 'ACTIVE':
-    Log.info(f"file '{media.file_name}' already saved in DB")
+    # TODO: reply to message saying this file is skipped
+    Log.info(f"file '{media.file_name}' already existing in channel {channel_id}, skip")
   else:
 
     Log.debug(f"file '{media.file_name}' will be processed")
