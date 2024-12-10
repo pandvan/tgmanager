@@ -542,13 +542,13 @@ class FSApi():
             if simulate:
               Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
             else:
-              Log.debug(f"'{file_or_folder.filename}' [{file_or_folder.id}] will be deleted")
+              Log.info(f"'{file_or_folder.filename}' [{file_or_folder.id}] will be deleted")
               removeItem(file_or_folder.id, session= session)
           else:
             if simulate:
               Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
             else:
-              Log.debug(f"'{file_or_folder.filename}' [{file_or_folder.id}] and its parts will be deleted")
+              Log.info(f"'{file_or_folder.filename}' [{file_or_folder.id}] and its parts will be deleted")
               await self.remove_file(file_or_folder, session)
 
         itemdata = remap(item)

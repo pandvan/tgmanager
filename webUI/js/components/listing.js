@@ -117,7 +117,7 @@ export default function Listing(props) {
           </div>
           <div className="col-3 text-end" >
             <div className="row">
-              <div className="col text-center" title="rename"><FontAwesomeIcon icon={faFolderPlus} className="clickable-item ms-2" onClick={() => onCreateFolder()} /></div>
+              <div className="col text-center" title="new folder"><FontAwesomeIcon icon={faFolderPlus} className="clickable-item ms-2" onClick={() => onCreateFolder()} /></div>
               {showActions && (
                 <>
                 {selectedItems.length == 1 && (<div className="col text-center" title="rename"><FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit()} /></div>)}

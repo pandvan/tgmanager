@@ -270,7 +270,7 @@ async def delete_folder(request: web.Request):
 
   try:
 
-    await FSApi.delete(path, True);
+    await FSApi.delete(path, False)
 
     return web.Response(
       status=204,

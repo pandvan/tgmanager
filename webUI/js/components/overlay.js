@@ -26,6 +26,7 @@ export function Overlay(props) {
       backdrop={stopClose ? "static" : true}
       onHide={onClose}
       keyboard={false}
+      scrollable={true}
     >
       <Modal.Header>
         <Modal.Title>{title || ''}</Modal.Title>
