@@ -272,7 +272,7 @@ def removeItem(itemId, session = None):
     ids = []
     for it in list:
       ids.append(it['id'])
-    ret = DB.update_many({'$in': ids}, { '$set': {'state': 'DELETED'} }, session = session)
+    ret = DB.update_many({'id': {'$in': ids}}, { '$set': {'state': 'DELETED'} }, session = session)
   else:
     # ret = DB.delete_one({'id': itemId}, session = session)
     ret = DB.update_one({'id': itemId}, { '$set': {'state': 'DELETED'} }, session = session)
