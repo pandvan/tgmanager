@@ -289,7 +289,7 @@ def purgeItem(itemId, session = None):
     ids = []
     for it in list:
       ids.append(it['id'])
-    ret = DB.delete_many({'$in': ids}, session = session)
+    ret = DB.delete_many({'id': {'$in': ids}}, session = session)
   else:
     # ret = DB.delete_one({'id': itemId}, session = session)
     ret = DB.delete_one({'id': itemId}, session = session)
