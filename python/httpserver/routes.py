@@ -266,7 +266,7 @@ async def delete_folder(request: web.Request):
     )
   
 
-  path = FSApiLib.build_path(folder);
+  path = FSApiLib.build_path(folder)
 
   try:
 

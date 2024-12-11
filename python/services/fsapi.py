@@ -509,7 +509,7 @@ class FSApi():
     
     return uploader
 
-  async def delete(self, path, simulate = False):
+  async def delete(self, path, simulate= False):
 
     paths = self.split_path(path)
     folder = self.get_last_folder(path, True)
@@ -529,37 +529,37 @@ class FSApi():
 
     with transaction:
 
+      all_folders_and_files = []
+
       if (item.type == 'folder'):
 
         Log.debug(f"collecting all files in '{item.filename}' and its subfolders")
         all_folders_and_files = list_file_in_folder_recursively(item.id, session= session)
 
-        Log.info(f"got {len(all_folders_and_files)} items to be deleted")
+      all_folders_and_files.append( item )
 
-        for file_or_folder in all_folders_and_files:
+      Log.info(f"Found {len(all_folders_and_files)} items to be deleted")
 
-          if file_or_folder.type == 'folder':
-            if simulate:
-              Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
-            else:
-              Log.info(f"'{file_or_folder.filename}' [{file_or_folder.id}] will be deleted")
-              removeItem(file_or_folder.id, session= session)
-          else:
-            if simulate:
-              Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
-            else:
-              Log.info(f"'{file_or_folder.filename}' [{file_or_folder.id}] and its parts will be deleted")
-              await self.remove_file(file_or_folder, session)
+      for file_or_folder in all_folders_and_files:
 
-        itemdata = remap(item)
         if simulate:
-          Log.info(f"'{itemdata.filename}' may be deleted, skip as per dry_run")
+          Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
         else:
-          removeItem(itemdata.id, session= session)
-          Log.info(f"folder '{itemdata.filename}' and all its content have been deleted")
+          Log.info(f"'{file_or_folder.filename}' will be marked as deleted")
+          removeItem(file_or_folder.id, session= session)
 
-      else:
-        await self.remove_file(item, session)
+        # if file_or_folder.type == 'folder':
+        #   if simulate:
+        #     Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
+        #   else:
+        #     Log.info(f"'{file_or_folder.filename}' [{file_or_folder.id}] will be deleted")
+        #     removeItem(file_or_folder.id, session= session)
+        # else:
+        #   if simulate:
+        #     Log.info(f"'{file_or_folder.filename}' may be deleted, skip as per dry_run")
+        #   else:
+        #     Log.info(f"'{file_or_folder.filename}' [{file_or_folder.id}] and its parts will be deleted")
+        #     await self.remove_file(file_or_folder, session)
 
 
   async def remove_file(self, file: TGFile, session= None):

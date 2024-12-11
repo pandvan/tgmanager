@@ -263,19 +263,19 @@ def getChildren(folderId, type = None, state = 'ACTIVE', ordered = False, sessio
 
 def removeItem(itemId, session = None):
   if itemId == ROOT_ID:
-    raise Exception('Cannot remote root folder')
+    raise Exception('Cannot remove root folder')
 
-  item = getItem(itemId, session= session)
+  # item = getItem(itemId, session= session)
 
-  if item.type == 'folder':
-    list = raw_list_items_in_folder(item.id, session= session)
-    ids = []
-    for it in list:
-      ids.append(it['id'])
-    ret = DB.update_many({'id': {'$in': ids}}, { '$set': {'state': 'DELETED'} }, session = session)
-  else:
+  # if item.type == 'folder':
+  #   list = raw_list_items_in_folder(item.id, session= session)
+  #   ids = []
+  #   for it in list:
+  #     ids.append(it['id'])
+  #   ret = DB.update_many({'id': {'$in': ids}}, { '$set': {'state': 'DELETED'} }, session = session)
+  # else:
     # ret = DB.delete_one({'id': itemId}, session = session)
-    ret = DB.update_one({'id': itemId}, { '$set': {'state': 'DELETED'} }, session = session)
+  ret = DB.update_one({'id': itemId}, { '$set': {'state': 'DELETED'} }, session = session)
   return ret
 
 def purgeItem(itemId, session = None):
