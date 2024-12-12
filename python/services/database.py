@@ -164,7 +164,7 @@ def init_database():
     fld.filename = ROOT_NAME
     create_folder(fld, None )
 
-  listen()
+  # listen()
 
 
 def close_connection():
@@ -491,14 +491,17 @@ def update_file(file: TGFile, data: TGFile, parent = None, session = None):
   return getItem(insert['id'], session= session)
 
 
-def get_file_by_message_id_and_channel(msgId: int, channel: str, session= None):
+def get_file_by_message_id_and_channel(msgId: int, channel: str, state = None, session= None):
   filter = {
     'type': { '$not': { '$eq': 'folder' } },
     'channel': channel,
-    'state': { '$not': { '$eq': 'TEMP' } },
     'parts.0': { '$exists': True },
     'parts.messageid': msgId
   }
+
+  if state is not None:
+    filter['state'] = state
+  
   ret = DB.find_one(filter, session= session)
   if ret is not None:
     return remap(ret)

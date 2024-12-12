@@ -71,8 +71,9 @@ async def start():
 
       Log.info(f"HTTP is running on {Config.http.host}:{Config.http.port}")
     
-    if Config.telegram.bot_token:
-      await Bot.start()
+      if Config.telegram.bot_token:
+        await Bot.start()
+        # await Bot.on_message(None, None)
     
 
     if initialize.Args.strm is True:
