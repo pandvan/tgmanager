@@ -44,7 +44,7 @@ class Bot():
         | filters.photo
     )
 
-    client.api.add_handler( MessageHandler(on_message, _filters ) )
+    client.api.add_handler( MessageHandler(Bot.on_message, _filters ) )
 
     Log.info("Started")
   
@@ -54,86 +54,86 @@ class Bot():
     msg = await client.api.send_message(channel, text)
     return msg is not None
     
-
-async def on_message(_, message: Message):
-  # wait for 2 seconds
-  # database is updating data
-  media = TelegramApi.get_media_from_message(message)
-  if media is None:
-    Log.info("message is not a file")
-    return
-  
-  time.sleep(2)
-
-
-  channel_id = str(message.chat.id)
-
-  Log.info(f"got file '{media.file_name}' in channel: {channel_id}")
-
-  # check message_id and channel:
-  # After each upload, we have already saved file in DB. So we must skip this
-  # message_id
-  dbFile = get_file_by_message_id_and_channel(message.id, channel_id)
-
-  if dbFile is not None: # and dbFile.state == 'ACTIVE': do not check `state` because each message is a new message
-    # portion of file is already present in DB and it is ACTIVE, skip
-    Log.info(f"file '{dbFile.filename}' with message {message.id} already exists in channel {channel_id}, skip")
-    return
-  
-  # the given file has not been uploaded; maybe it has been forwarded
-
-  # check filename in channel
-  # After each forwarded file in channel, we have to check its `filename` and `state`
-  # because we may want to re-forward a previuos-deleted file, se we need to check its `filename`
-  dbFile = get_file_by_filename_and_channel(media.file_name, channel_id)
-
-  if dbFile is not None and dbFile.state == 'ACTIVE':
-    # TODO: reply to message saying this file is skipped
-    Log.info(f"file '{media.file_name}' already existing in channel {channel_id}, skip")
-  else:
-
-    Log.debug(f"file '{media.file_name}' will be processed")
-
-    folders = get_folders_by_channel(channel_id)
-    if len(folders) > 0:
-      parentFolder = folders[0]
-      Log.info(f"file '{media.file_name}' will be stored in '{parentFolder.filename}'")
-      parentFolder = parentFolder.id
-    else:
-      Log.info(f"file '{media.file_name}' will be stored in root folder")
-      parentFolder = ROOT_ID
+  @staticmethod
+  async def on_message(_, message: Message):
+    # wait for 2 seconds
+    # database is updating data
+    media = TelegramApi.get_media_from_message(message)
+    if media is None:
+      Log.info("message is not a file")
+      return
     
-    # use user account in order to retrieve correct file_ID
-    client = TGClients.next_client(False)
+    time.sleep(2)
 
-    msg = await client.get_message(channel_id, message.id)
 
-    newdatafile = TGFile(
-      filename = media.file_name,
-      parts = [ TGPart(
-        messageid = msg.id,
-        originalfilename = media.file_name,
-        hash = '',
-        fileid = media.filedata.media_id,
-        size = media.file_size,
-        index = 0
-      )],
-      parentfolder = parentFolder,
-      type = media.mime_type or mimetypes.guess_type(media.file_name)[0] or 'application/octet-stream',
-      content = None,
-      channel = channel_id,
-      state = 'ACTIVE'
-    )
+    channel_id = str(message.chat.id)
 
-    if dbFile is not None:
-      # update
-      Log.info(f"file will be updated because already exists")
-      Log.debug(dbFile.toDB())
-      dbFile = update_file( dbFile, newdatafile, parentFolder)
+    Log.info(f"got file '{media.file_name}' in channel: {channel_id}")
+
+    # check message_id and channel:
+    # After each upload, we have already saved file in DB. So we must skip this
+    # message_id
+    dbFile = get_file_by_message_id_and_channel(message.id, channel_id)
+
+    if dbFile is not None: # and dbFile.state == 'ACTIVE': do not check `state` because each message is a new message
+      # portion of file is already present in DB and it is ACTIVE, skip
+      Log.info(f"file '{dbFile.filename}' with message {message.id} already exists in channel {channel_id}, skip")
+      return
+    
+    # the given file has not been uploaded; maybe it has been forwarded
+
+    # check filename in channel
+    # After each forwarded file in channel, we have to check its `filename` and `state`
+    # because we may want to re-forward a previuos-deleted file, se we need to check its `filename`
+    dbFile = get_file_by_filename_and_channel(media.file_name, channel_id)
+
+    if dbFile is not None and dbFile.state == 'ACTIVE':
+      # TODO: reply to message saying this file is skipped
+      Log.info(f"file '{media.file_name}' already existing in channel {channel_id}, skip")
     else:
-      # create
-      dbFile = create_file( newdatafile, parentFolder)
 
-    Log.info(f"'{media.file_name}' has been correctly saved into DB: {dbFile.id}'")
+      Log.debug(f"file '{media.file_name}' will be processed")
+
+      folders = get_folders_by_channel(channel_id)
+      if len(folders) > 0:
+        parentFolder = folders[0]
+        Log.info(f"file '{media.file_name}' will be stored in '{parentFolder.filename}'")
+        parentFolder = parentFolder.id
+      else:
+        Log.info(f"file '{media.file_name}' will be stored in root folder")
+        parentFolder = ROOT_ID
+      
+      # use user account in order to retrieve correct file_ID
+      client = TGClients.next_client(False)
+
+      msg = await client.get_message(channel_id, message.id)
+
+      newdatafile = TGFile(
+        filename = media.file_name,
+        parts = [ TGPart(
+          messageid = msg.id,
+          originalfilename = media.file_name,
+          hash = '',
+          fileid = media.filedata.media_id,
+          size = media.file_size,
+          index = 0
+        )],
+        parentfolder = parentFolder,
+        type = media.mime_type or mimetypes.guess_type(media.file_name)[0] or 'application/octet-stream',
+        content = None,
+        channel = channel_id,
+        state = 'ACTIVE'
+      )
+
+      if dbFile is not None:
+        # update
+        Log.info(f"file will be updated because already exists")
+        Log.debug(dbFile.toDB())
+        dbFile = update_file( dbFile, newdatafile, parentFolder)
+      else:
+        # create
+        dbFile = create_file( newdatafile, parentFolder)
+
+      Log.info(f"'{media.file_name}' has been correctly saved into DB: {dbFile.id}'")
 
 
