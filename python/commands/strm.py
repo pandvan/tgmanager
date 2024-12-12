@@ -66,15 +66,12 @@ class Strm():
     
     Log.info("Listing all files")
 
-    files = list_file_in_folder_recursively(parent_id, skip_folders = True, skip_files = False, ordered = True)
+    files = list_file_in_folder_recursively(parent_id, skip_folders = True, skip_files = False, state= 'ACTIVE')
 
     Log.info(f"populating {len(files)} files")
 
     for file in files:
 
-      if ( file.state != 'ACTIVE'):
-        continue
-    
       folders = []
       if file.path:
         for p in file.path:

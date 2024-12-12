@@ -49,6 +49,13 @@ async def start():
     sync = Sync()
     await sync.sync_command(initialize.Args)
   
+  elif initialize.Args.copy is True:
+    # enable sync command
+    from commands.copy import Copy
+
+    copy = Copy()
+    await copy.copy_command(initialize.Args)
+  
   elif initialize.Args.delete:
     # enable sync command
     from commands.deleting import Deleting

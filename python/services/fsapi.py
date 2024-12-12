@@ -194,61 +194,60 @@ class FSApi():
 
   async def move_or_copy(self, pathFrom: str, pathTo: str, is_move = False):
 
-    (session, transaction) = start_session()
+    pathsTo = self.split_path(pathTo)
 
-    with transaction:
+    oldFile = self.get_last_folder(pathFrom)
 
-      pathsTo = self.split_path(pathTo)
+    if ( oldFile is None ):
+      raise Exception(f"'${pathFrom}' not found")
+    
+    parentFolder = getItem(ROOT_ID)
+    destChannelid = None
 
-      oldFile = self.get_last_folder(pathFrom)
-
-      if ( oldFile is None ):
-        raise Exception(f"'${pathFrom}' not found")
-      
-      parentFolder = getItem(ROOT_ID)
-      destChannelid = None
-
-      while( len(pathsTo) - 1 > 0 ):
-        folderName = pathsTo[0]
-        pathsTo = pathsTo[1:]
-
-        destPath = getItemByFilename( folderName, parentFolder.id, 'folder', session= session)
-        if ( destPath is None ):
-          # destPath = create_folder( TGFolder(
-          #   parentfolder = parentFolder.id,
-          #   filename = folderName
-          # ), parentFolder.id, session= session)
-          raise Exception(f"folder '{folderName}' not exists")
-        
-        parentFolder = destPath
-        destChannelid = parentFolder.channel or destChannelid
-
-      # get new name
-      filename = pathsTo[0]
+    while( len(pathsTo) - 1 > 0 ):
+      folderName = pathsTo[0]
       pathsTo = pathsTo[1:]
 
-      already_existing_folder = getItemByFilename(filename, parentFolder.id, 'folder', session= session)
-
-      if already_existing_folder is not None:
-        parentFolder = already_existing_folder
-        filename = oldFile.filename
-
-        if already_existing_folder.channel:
-          destChannelid = already_existing_folder.channel
+      destPath = getItemByFilename( folderName, parentFolder.id, 'folder')
+      if ( destPath is None ):
+        # destPath = create_folder( TGFolder(
+        #   parentfolder = parentFolder.id,
+        #   filename = folderName
+        # ), parentFolder.id, session= session)
+        raise Exception(f"folder '{folderName}' not exists")
       
+      parentFolder = destPath
+      destChannelid = parentFolder.channel or destChannelid
 
-      if ( destChannelid is None ):
-        Log.info('[move] file will be moved into default channel')
-        destChannelid = Config.telegram.upload.channel
+    # get new name
+    filename = pathsTo[0]
+    pathsTo = pathsTo[1:]
 
-      filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= (oldFile.type == 'folder'))
+    already_existing_folder = getItemByFilename(filename, parentFolder.id, 'folder')
 
-      oldFileData = remap(oldFile)
+    if already_existing_folder is not None:
+      parentFolder = already_existing_folder
+      filename = oldFile.filename
+
+      if already_existing_folder.channel:
+        destChannelid = already_existing_folder.channel
     
-      if ( oldFile.type == 'folder' ):
-        
-        newFolderData = None
-        
+
+    if ( destChannelid is None ):
+      Log.info('[move] file will be moved into default channel')
+      destChannelid = Config.telegram.upload.channel
+
+    filename = self.calculate_filename_for_copy(filename, parentFolder, is_folder= (oldFile.type == 'folder'))
+
+    oldFileData = remap(oldFile)
+  
+    if ( oldFile.type == 'folder' ):
+      
+      newFolderData = None
+
+      (session, transaction) = start_session()
+
+      with transaction:
         if is_move:
           newFolderData = update_folder(oldFileData, TGFolder(
             parentfolder = parentFolder.id, 
@@ -259,32 +258,32 @@ class FSApi():
           oldFileData.filename = filename
           newFolderData = create_folder(oldFileData, parentFolder.id, session= session)
 
-        # move all contents into new folder
-        await self.move_or_copy_all_contents_into_new_folder(oldFile, newFolderData, destChannelid, is_move, session= session)
-      
+      # move all contents into new folder
+      await self.move_or_copy_all_contents_into_new_folder(oldFile, newFolderData, destChannelid, is_move, session= session)
+    
+    else:
+      new_parts = oldFileData.parts
+      if ( (oldFileData.content is None or oldFileData.content_length() <= 0) and len(oldFileData.parts) > 0 ):
+        # file is located on telegram: move it to new channel if needed
+        if ( oldFileData.channel != destChannelid ):
+          # file needs to be moved between channels
+
+          new_parts = self.forward_file_between_channels(oldFileData, oldFileData.channel, destChannelid, delete_original = is_move)
+
+      if is_move:
+        update_file(oldFileData, TGFile(
+          parentfolder = parentFolder.id,
+          filename = filename,
+          channel = destChannelid or oldFileData.channel,
+          parts = new_parts
+        ), parentFolder.id, session= session)
       else:
-        new_parts = oldFileData.parts
-        if ( (oldFileData.content is None or oldFileData.content_length() <= 0) and len(oldFileData.parts) > 0 ):
-          # file is located on telegram: move it to new channel if needed
-          if ( oldFileData.channel != destChannelid ):
-            # file needs to be moved between channels
+        oldFileData.id = None
+        oldFileData.filename = filename
+        oldFileData.channel = destChannelid or oldFileData.channel
+        oldFileData.parts = new_parts
 
-            new_parts = self.forward_file_between_channels(oldFileData, oldFileData.channel, destChannelid, delete_original = is_move)
-
-        if is_move:
-          update_file(oldFileData, TGFile(
-            parentfolder = parentFolder.id,
-            filename = filename,
-            channel = destChannelid or oldFileData.channel,
-            parts = new_parts
-          ), parentFolder.id, session= session)
-        else:
-          oldFileData.id = None
-          oldFileData.filename = filename
-          oldFileData.channel = destChannelid or oldFileData.channel
-          oldFileData.parts = new_parts
-
-          create_file(oldFileData, parentFolder.id, session= session)
+        create_file(oldFileData, parentFolder.id, session= session)
 
 
 
@@ -617,18 +616,20 @@ class FSApi():
           has_part = False
           for update in resp.updates:
             if getattr(update, 'message', None) is not None:
-              newParts.append({
-                'messageid': update.message.id,
-                'originalfilename': part.originalfilename,
-                'hash': part.hash,
-                'fileid': part.fileid,
-                'size': part.size,
-                'index': part.index
-              })
+              newParts.append(
+                TGPart({
+                  'messageid': update.message.id,
+                  'originalfilename': part.originalfilename,
+                  'hash': part.hash,
+                  'fileid': part.fileid,
+                  'size': part.size,
+                  'index': part.index
+                })
+              )
               has_part = True
               break
 
-          # deplete old art
+          # delete old art
           if has_part:
             if delete_original:
               resp = await client.delete_message(source_ch, part.messageid)
@@ -638,10 +639,10 @@ class FSApi():
             raise Exception(f"cannot forward file between channels: {source_ch} -> {dest_ch}")
         
         else: 
-          Log.warn(f"file_id is different: {str(part.fileid)} - {str(media.filedata.media_id)}, channel: {source_ch}, message: {part.messageid}")
+          Log.warning(f"file_id is different: {str(part.fileid)} - {str(media.filedata.media_id)}, channel: {source_ch}, message: {part.messageid}")
           newParts.append(part)
       else:
-        Log.warn(f"cannot get message from channel: {source_ch} -> {part.messageid}")
+        Log.warning(f"cannot get message from channel: {source_ch} -> {part.messageid}")
         newParts.append(part)
     
     return newParts
@@ -671,7 +672,7 @@ class FSApi():
 
   async def move_or_copy_all_contents_into_new_folder(self, source_folder: TGFolder, original_dest_folder: TGFolder, dest_channel: str = None, is_move = False, session = None):
     # copy or move all contents into new folder
-    all_folders_and_files = list_file_in_folder_recursively(source_folder.id, session= session)
+    all_folders_and_files = list_file_in_folder_recursively(source_folder.id, state= 'ACTIVE', session= session)
     
     for item in all_folders_and_files:
 

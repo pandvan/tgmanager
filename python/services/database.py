@@ -211,20 +211,20 @@ def remap(ret):
   item.state = ret['state']
 
   if 'path' in ret:
-    coll = {}
+    collpath = []
     for p in ret['path']:
       pFolder = remap(p)
-      coll[ pFolder.id ] = pFolder
+      collpath.append( pFolder )
     
-    paths = []
-    pf_id = item.parentfolder
-    while pf_id and len(coll) > 0:
-      p = coll[ pf_id ]
-      del coll[ pf_id ]
-      paths.append( p )
-      pf_id = p.parentfolder
+    # paths = []
+    # pf_id = item.parentfolder
+    # while pf_id and len(coll) > 0:
+    #   p = coll[ pf_id ]
+    #   del coll[ pf_id ]
+    #   paths.append( p )
+    #   pf_id = p.parentfolder
     
-    item.path = paths
+    item.path = collpath
 
   return item
 
@@ -625,7 +625,7 @@ def check_transaction():
     CAN_TRANSACTION = False
 
 
-def raw_list_items_in_folder(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False, state = None, level = 0, session= None):
+def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False, skip_folders = False, state = None, level = None, session= None):
   aggregation = []
   if ( skip_files ):
     aggregation.append({
@@ -653,10 +653,11 @@ def raw_list_items_in_folder(parent = ROOT_ID, skip_files = False, skip_folders 
     'startWith': '$parentfolder', 
     'connectFromField': 'parentfolder', 
     'connectToField': 'id', 
+    'depthField': "level",
     'as': 'path'
   }
 
-  if level > 0:
+  if level is not None:
     lookupData['maxDepth'] = level
 
   aggregation.append({
@@ -670,7 +671,12 @@ def raw_list_items_in_folder(parent = ROOT_ID, skip_files = False, skip_folders 
       }
     })
   
-  
+  if itemId is not None:
+    aggregation.append({
+      '$match': {
+        'id': itemId
+      }
+    })
   
   if state is not None:
     aggregation.append({
@@ -684,27 +690,55 @@ def raw_list_items_in_folder(parent = ROOT_ID, skip_files = False, skip_folders 
       }
     })
   
-  if ordered:
-    aggregation.append({
-      '$sort': {
-        'filename': 1
-      }
-    })
+  aggregation.append({
+    '$unwind': {
+      'path': "$path",
+      'preserveNullAndEmptyArrays': True
+    }
+  })
+
+  aggregation.append({
+    '$sort': { "path.level": -1 }
+  })
+
+  aggregation.append({
+    '$group': {
+      '_id': "$_id",
+      'id': { '$first': '$id' },
+      'filename': { '$first': '$filename' },
+      'channel': { '$first': '$channel' },
+      'parts': { '$first': '$parts' },
+      'parentfolder': { '$first': '$parentfolder' },
+      'type': { '$first': '$type' },
+      'info': { '$first': '$info' },
+      'content': { '$first': '$content' },
+      'state': { '$first': '$state' },
+      'ctime': { '$first': '$ctime' },
+      'mtime': { '$first': '$mtime' },
+      'path': { '$push': "$path" }
+    }
+  })
+	
+  aggregation.append({
+    '$sort': {
+      'filename': 1
+    }
+  })
 
   ret = DB.aggregate(aggregation, session= session)
   return ret
 
 
-def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, ordered = False, state = None, level = 0, session= None):
+def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, state = None, level= None, session= None):
 
-  ret = raw_list_items_in_folder(parent, skip_files, skip_folders, ordered, state, level, session)
+  ret = raw_list_items_in_folder(parent= parent, skip_files= skip_files, skip_folders= skip_folders, state= state, level= level, session= session)
   
   result = []
   for i in ret:
     item = remap(i)
-    if item.path:
-      item.path.reverse()
-    result.append( item ) 
+    # if item.path:
+    #   item.path.reverse()
+    result.append( item )
   return result
 
 

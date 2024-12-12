@@ -157,6 +157,32 @@ parser.add_argument('--delete_dry_run',
                     action=argparse.BooleanOptionalAction,
                     help='simulate deletion'
                     )
+parser.add_argument('--copy',
+                    type = bool,
+                    help='copy files and folders',
+                    action=argparse.BooleanOptionalAction
+                    )
+
+parser.add_argument('--copy_source',
+                    type = str,
+                    nargs='?',
+                    help='source folder'
+                    )
+parser.add_argument('--copy_destination',
+                    type = str,
+                    nargs='?',
+                    help='destination folder'
+                    )
+parser.add_argument('--copy_delete_source',
+                    type = bool,
+                    action=argparse.BooleanOptionalAction,
+                    help='delete files and folder after copied'
+                    )
+parser.add_argument('--copy_dry_run',
+                    type = bool,
+                    action=argparse.BooleanOptionalAction,
+                    help='simulate copy files'
+                    )
 
 Args = parser.parse_args()
 
