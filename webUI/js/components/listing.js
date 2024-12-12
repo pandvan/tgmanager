@@ -109,30 +109,36 @@ export default function Listing(props) {
   }, [reloadFolder, setShowOverlayMove]);
 
   return (
-    <div className="row">
-      <div className="col-12" >
-        <div className="row">
-          <div className="col-9" >
-            <BreadCrumbs navigation={navigation} navigate={navigate} />
-          </div>
-          <div className="col-3 text-end" >
-            <div className="row">
-              <div className="col text-center" title="new folder"><FontAwesomeIcon icon={faFolderPlus} className="clickable-item ms-2" onClick={() => onCreateFolder()} /></div>
-              {showActions && (
-                <>
-                {selectedItems.length == 1 && (<div className="col text-center" title="rename"><FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit()} /></div>)}
-                <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" title="copy"/></div>
-                <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" title="move" onClick={() => setShowOverlayMove(true)}/></div>
-                {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" title="merge" onClick={() => setShowOverlayMerge(true)}  /></div>}
-                <div className="col text-center" ><FontAwesomeIcon icon={faTrash} className="clickable-item" title="delete" onClick={() => setShowOverlayDelete(true)} /></div>
-              </>)}
-            </div>
-          </div> 
+    <div>
+      <nav class="navbar navbar-expand-lg navbar-light px-4 bg-light justify-content-between" style={{
+          position: 'fixed',
+          width: '100%',
+          height: 40,
+          zIndex: 1
+        }}>
+        <div className="row" >
+          <BreadCrumbs navigation={navigation} navigate={navigate} />
         </div>
-        <div className="row border-top">
-          <div className="col-12" >
-            {currentFolder && <Folder source={currentFolder} navigate={navigate} showFolders={true} showFiles={true} />}
-          </div>
+        <div className="row">
+          <div className="col text-center" title="new folder"><FontAwesomeIcon icon={faFolderPlus} className="clickable-item ms-2" onClick={() => onCreateFolder()} /></div>
+          {showActions && (
+            <>
+            {selectedItems.length == 1 && (<div className="col text-center" title="rename"><FontAwesomeIcon icon={faPen} className="clickable-item ms-2" onClick={() => onEdit()} /></div>)}
+            <div className="col text-center" ><FontAwesomeIcon icon={faCopy} className="clickable-item" title="copy"/></div>
+            <div className="col text-center" ><FontAwesomeIcon icon={faRightLeft} className="clickable-item" title="move" onClick={() => setShowOverlayMove(true)}/></div>
+            {showMergeAction && <div className="col text-center" ><FontAwesomeIcon icon={faObjectGroup} className="clickable-item" title="merge" onClick={() => setShowOverlayMerge(true)}  /></div>}
+            <div className="col text-center" ><FontAwesomeIcon icon={faTrash} className="clickable-item" title="delete" onClick={() => setShowOverlayDelete(true)} /></div>
+          </>)}
+        </div>
+      </nav>
+      <div className="row border-top" style={{
+          position: 'absolute',
+          width: '100%',
+          top: 40,
+          bottom: 0
+        } }>
+        <div className="col-12" >
+          {currentFolder && <Folder source={currentFolder} navigate={navigate} showFolders={true} showFiles={true} />}
         </div>
       </div>
       {showOverlayDelete && <OverlayDelete items={selectedItems} onClose={onAfterDelete} />}

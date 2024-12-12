@@ -66,7 +66,11 @@ export function Item(props) {
       <div className="col-1 text-end">
         <div className="row">
           <div className="col text-center" >
-            {item.type != 'folder' && <FontAwesomeIcon icon={faDownload} className="clickable-item ms-2" title="download" onClick={() => onDownload(item)} />}
+            {item.type != 'folder' && (
+              <a href={`/files/${item.id}`} download={item.filename} target="_blank" onClick={(e) => onDownload(e, item)} >
+                <FontAwesomeIcon icon={faDownload} className="clickable-item ms-2" title="download" />
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -144,21 +148,23 @@ export function Folder(props) {
     addSelectedItem(item);
   }, [selectedItems, items, isSelected, lastSelectedIndex]);
 
-  const onDownload = useCallback( (item) => {
+  const onDownload = useCallback( (e, item) => {
 
     const resp = confirm(`Download '${item.filename}'?`);
-    if ( !resp ) return;
+    if ( !resp ) {
+      return e.preventDefault();
+    }
 
-    const element = document.createElement('a');
-    element.setAttribute('href', `/files/${item.id}`);
-    element.setAttribute('download', item.filename);
+    // const element = document.createElement('a');
+    // element.setAttribute('href', `/files/${item.id}`);
+    // element.setAttribute('download', item.filename);
   
-    element.style.display = 'none';
-    document.body.appendChild(element);
+    // element.style.display = 'none';
+    // document.body.appendChild(element);
   
-    element.click();
+    // element.click();
   
-    document.body.removeChild(element);
+    // document.body.removeChild(element);
 
   }, []);
 
