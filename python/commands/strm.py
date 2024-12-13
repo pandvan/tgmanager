@@ -7,6 +7,7 @@ from services.fsapi import FSApi as FSApiLib
 import shutil
 from pathlib import Path
 import base64
+import hashlib
 
 Log = logging.getLogger("Strm")
 
@@ -100,22 +101,50 @@ class Strm():
 
     if ( file.content is not None and file.content_length() > 0 ):
 
-      Log.debug(f"creating file with content: '{filepath}'")
-
-      f = open( destination_full_path, "wb")
+      content_as_byte = b''
       if type(file.content) is not bytes:
-        f.write( base64.b64decode(file.content) )
+        content_as_byte = base64.b64decode(file.content)
       else:
-        f.write( file.content )
-      f.close()
+        content_as_byte = file.content
+
+      recreate = self.check_file_recreation(destination_full_path, content_as_byte)
+
+      if recreate:
+
+        Log.debug(f"creating file with content: '{filepath}'")
+
+        f = open( destination_full_path, "wb")
+        f.write( content_as_byte )
+        f.close()
+      else:
+        Log.debug(f"file '{file.filename}' already exists and it is not changed, skip")
 
     else:
-      Log.debug(f"creating file with strm: '{filepath}' ({file.id})")
       strm_txt = self.url.replace('{file_id}', file.id)
       filename = os.path.join(dir_path, Path(file.filename).stem)
-      f = open( f"{filename}.strm", "w")
-      f.write( strm_txt )
-      f.close()
+      newfilename = f"{filename}.strm"
+
+      recreate = self.check_file_recreation(newfilename, bytes(strm_txt, 'utf-8'))
+
+      if recreate:
+        Log.debug(f"creating file with strm: '{filepath}' ({file.id})")
+        
+        f = open(newfilename, "w")
+        f.write( strm_txt )
+        f.close()
+      else:
+        Log.debug(f"file '{file.filename}' already exists and it is not changed, skip")
+    
+
+  def check_file_recreation(self, path, content):
+
+    if os.path.exists(path):
+      realMd5 = hashlib.md5(open(path,'rb').read()).hexdigest()
+      newMd5 = hashlib.md5(content).hexdigest()
+      return realMd5 != newMd5
+    
+    # file will be created
+    return True
 
 
   def watch_changes(self, type, doc, id):
