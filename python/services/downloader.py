@@ -67,7 +67,7 @@ class Downloader():
     # Calculate the full range stack to be downloaded
     while( True ):
 
-      Log.info(f"check part: {currentIndex} of {len(self.parts)}")
+      Log.debug(f"check part: {currentIndex} of {len(self.parts)}")
 
       file = self.parts[currentIndex]
       fileToAdd = None
@@ -94,7 +94,7 @@ class Downloader():
       currentIndex += 1
     
     
-    for item in files:
+    for index, item in enumerate(files):
 
       start = item['start']
       end = item['end']
@@ -106,6 +106,8 @@ class Downloader():
       media = TelegramApi.get_media_from_message( message )
   
       Log.debug(f"ready for download, range: {start}-${end}")
+
+      Log.info(f"serve part {index}/{len(files)}, range: {start}-${end}/{file.size} -> [{file.index}] '{file.originalfilename}'")
 
       await self.perform_stream(media.filedata.media_id, media.filedata.access_hash, media.filedata.file_reference, media.filedata.dc_id, start, end, destination, awaited)
 
