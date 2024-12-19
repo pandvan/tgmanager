@@ -100,6 +100,58 @@ class TGItem:
     
     return data
 
+  def clone(self):
+
+    newitem = None
+    if type(self) == TGFile:
+      newitem = TGFile()
+    elif type(self) == TGFolder:
+      newitem = TGFolder()
+
+    newitem.id = self.id
+    newitem.filename = self.filename
+    newitem.channel = self.channel
+
+    if self.parts:
+      # loop parts
+      newparts = []
+      for part in self.parts:
+        newparts.append(TGPart(
+          messageid = part.messageid,
+          originalfilename = part.originalfilename,
+          fileid = part.fileid,
+          size = part.size,
+          index = part.index,
+          hash = part.hash
+        ))
+      newitem.parts = newparts
+
+    newitem.parentfolder = self.parentfolder
+    newitem.type = self.type
+    newitem.info = self.info
+    newitem.content = self.content
+    newitem.state = self.state
+    newitem.ctime = self.ctime
+    newitem.mtime = self.mtime
+
+    if self.path:
+      # loop path
+      newpaths = []
+      for path in self.path:
+        newpaths.append(TGFolder(
+          id = path.id,
+          filename = path.filename,
+          channel = path.channel,
+          parentfolder = path.parentfolder,
+          info = path.info,
+          state = path.state,
+          ctime = path.ctime,
+          mtime = path.mtime
+        ))
+      newitem.path = newpaths
+    
+    return newitem
+
 class TGFolder(TGItem):
 
   def __init__(self, id = '', filename = '', channel = None, parentfolder = '', info = {}, state = 'ACTIVE', ctime = None, mtime = None):
@@ -336,11 +388,16 @@ def getItemByFilename(filename: str, parent: str = None, type: str = None, state
       res.append( remap(item) )
 
 
-def check_exist(filename, parent, type = None, id = None, session= None):
-  fn = re.sub("/", "-", filename, flags=re.IGNORECASE)
-  regexp = re.compile( f"^{fn}", re.IGNORECASE)
+def check_exist(filename, parent, type = None, id = None, state= 'ACTIVE', session= None):
+
+  # TODO: check filename with IGNORECASE
+  # fn = re.sub("/", "-", filename, flags=re.IGNORECASE)
+  # fn = re.sub("(", "\\(", filename, flags=re.IGNORECASE)
+  # fn = re.sub(")", "\)", filename, flags=re.IGNORECASE)
+
+  # regexp = re.compile( f"^{fn}", re.IGNORECASE)
   filter = {
-    "filename": regexp,
+    "filename": filename,
     "parentfolder": parent
   }
 
@@ -350,6 +407,9 @@ def check_exist(filename, parent, type = None, id = None, session= None):
 
   if type is not None:
     filter['type'] = type
+  
+  # TODO: check state control
+  filter['state'] = state
 
   ret = DB.count_documents(filter, session= session)
   return ret > 0
@@ -359,7 +419,7 @@ def check_exist(filename, parent, type = None, id = None, session= None):
 def create_folder(folder: TGFolder, parent = None, session = None):
   
   # check existing
-  if check_exist(folder.filename, parent or folder.parentfolder, 'folder', session= session):
+  if check_exist(filename= folder.filename, parent= parent or folder.parentfolder, type= 'folder', state= folder.state, session= session):
     raise Exception(f"Folder '{folder.filename}' already exists in '{parent}'")
 
   # return await this.write( async () => {
@@ -393,33 +453,40 @@ def create_folder(folder: TGFolder, parent = None, session = None):
 
 
 
-def update_folder(folder: TGFolder, data: TGFolder, parent = None, session = None):
+def update_folder(oldfolder: TGFolder, data: TGFolder, parent = None, session = None):
     # check existing
-  if check_exist(data.filename, parent or data.parentfolder or folder.parentfolder, 'folder', data.id or folder.id):
+  if check_exist(
+      filename= data.filename or oldfolder.filename, 
+      parent= parent or data.parentfolder or oldfolder.parentfolder, 
+      type= 'folder',
+      id= data.id or oldfolder.id, 
+      state= data.state or oldfolder.state, 
+      session= session
+    ):
     raise Exception(f"Folder '{data.filename}' already exists in '{parent}'")
   
-  if not folder.id:
+  if not oldfolder.id:
     raise Exception(f"Cannot update folder without id")
 
   # const oldFold = this.remap(folder);
-  fn = re.sub("/", "-", data.filename or folder.filename, flags=re.IGNORECASE)
+  fn = re.sub("/", "-", data.filename or oldfolder.filename, flags=re.IGNORECASE)
 
-  folder.type = 'folder'
-  folder.filename = fn
-  folder.parentfolder = parent or data.parentfolder or folder.parentfolder
-  folder.state = data.state or folder.state or 'ACTIVE'
+  oldfolder.type = 'folder'
+  oldfolder.filename = fn
+  oldfolder.parentfolder = parent or data.parentfolder or oldfolder.parentfolder
+  oldfolder.state = data.state or oldfolder.state or 'ACTIVE'
 
   # we can modify relative channel for this folder
-  folder.channel = data.channel if data.channel is not None else folder.channel
+  oldfolder.channel = data.channel if data.channel is not None else oldfolder.channel
   
-  ret = DB.update_one({'id': folder.id}, {'$set': folder.toDB()}, session = session)
-  return getItem(folder.id, session= session)
+  ret = DB.update_one({'id': oldfolder.id}, {'$set': oldfolder.toDB()}, session = session)
+  return getItem(oldfolder.id, session= session)
 
 
 def create_file(file: TGFile, parent = None, session = None):
   
   # check existing
-  if check_exist(file.filename, parent or file.parentfolder, file.type):
+  if check_exist(filename= file.filename, parent= parent or file.parentfolder, type= file.type, state= file.state, session= session):
     raise Exception(f"File '{file.filename}' already exists in '{parent}'")
 
   if (not file.content or file.content_length() <= 0) and not file.channel:
@@ -461,24 +528,31 @@ def create_file(file: TGFile, parent = None, session = None):
   return remap( obj )
 
 
-def update_file(file: TGFile, data: TGFile, parent = None, session = None):
+def update_file(oldfile: TGFile, data: TGFile, parent = None, session = None):
   # check existing
-  if check_exist(data.filename, parent or data.parentfolder or file.parentfolder, file.type, file.id):
-    raise Exception(f"`File '{file.filename}' already exists in '{parent}'")
+  if check_exist(
+      filename= data.filename or oldfile.filename, 
+      parent= parent or data.parentfolder or oldfile.parentfolder, 
+      type= data.type or oldfile.type, 
+      id= oldfile.id, 
+      state= data.state or oldfile.state, 
+      session= session
+    ):
+    raise Exception(f"`File '{data.filename or oldfile.filename}' already exists in '{parent or data.parentfolder or oldfile.parentfolder}'")
 
-  if not file.id:
+  if not oldfile.id:
     raise Exception(f"Cannot update file without id")
 
   insert = data.toDB()
-  insert['id'] = file.id
+  insert['id'] = oldfile.id
 
-  fn = re.sub("/", "-", data.filename or file.filename, flags=re.IGNORECASE)
+  fn = re.sub("/", "-", data.filename or oldfile.filename, flags=re.IGNORECASE)
 
-  insert['type'] = data.type or file.type or 'application/octet-stream'
+  insert['type'] = data.type or oldfile.type or 'application/octet-stream'
   insert['filename'] = fn
-  insert['parentfolder'] = parent or data.parentfolder or file.parentfolder
-  insert['state'] = data.state or file.state or 'ACTIVE'
-  insert['channel'] = data.channel if data.channel is not None else file.channel
+  insert['parentfolder'] = parent or data.parentfolder or oldfile.parentfolder
+  insert['state'] = data.state or oldfile.state or 'ACTIVE'
+  insert['channel'] = data.channel if data.channel is not None else oldfile.channel
 
   insert['mtime'] = NOW()
 
@@ -493,17 +567,17 @@ def update_file(file: TGFile, data: TGFile, parent = None, session = None):
   #   insert['content'] = file.content
   
   elif data.parts is None:
-    if file.parts is not None:
+    if oldfile.parts is not None:
       insert['parts'] = []
-      for p in file.parts:
+      for p in oldfile.parts:
         insert['parts'].append(p.toDB())
       
       # force reset the original channel, in case of 'rename' from WEbUI
       # WebUI set `channel` to empty string: this resets the channel in DB
-      insert['channel'] = data.channel or file.channel
+      insert['channel'] = data.channel or oldfile.channel
 
   Log.debug(f"updating file into DB: {insert['id']} - {insert}")
-  DB.update_one({'id': insert['id']}, { '$set': insert}, session = session)
+  DB.update_one({'id': insert['id']}, { '$set': insert}, session= session)
 
   return getItem(insert['id'], session= session)
 

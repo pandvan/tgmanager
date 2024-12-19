@@ -103,6 +103,10 @@ class Downloader():
       
       Log.debug(f"getting message {msg}")
       message = await self.client.get_message(self.channel_id, msg)
+      if message is None:
+        Log.error(f"no message found with id '{msg}' in chat '{self.channel_id}'")
+        raise Exception(f"no message found with id '{msg}' in chat '{self.channel_id}'")
+      
       media = TelegramApi.get_media_from_message( message )
   
       Log.debug(f"ready for download, range: {start}-${end}")

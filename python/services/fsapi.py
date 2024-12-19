@@ -212,8 +212,7 @@ class FSApi():
     dest = getItem( _dest.id )
 
     
-    source_channel = get_item_channel(source,allow_root= False)
-    dest_channel = get_item_channel(dest,allow_root= False)
+    dest_channel = get_item_channel(dest, allow_root= False)
     
     if not dest_channel:
       Log.warning(f"files will be KEPT in the same channel")
@@ -237,13 +236,13 @@ class FSApi():
     copybatch = CopyBatch(dest)
     
     if source.type != 'folder':
-      await copybatch.process([source])
+      await copybatch.process([ source ])
     
     else:
       Log.debug(f"getting all files from source: '{source.filename}' ...")
       all_files = list_file_in_folder_recursively(source.id, skip_files= False, skip_folders= True, state= 'ACTIVE')
       Log.info(f"found {len(all_files)} files")
-      await copybatch.process( source, all_files )
+      await copybatch.process( all_files )
 
 
 

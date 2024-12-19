@@ -1,5 +1,5 @@
 from services.telegram import TelegramApi
-from services.database import TGFile, TGFolder, TGPart, getItemByFilename, create_folder, start_session, create_file
+from services.database import TGFile, TGFolder, TGPart, getItemByFilename, create_folder, start_session, create_file, update_file
 from services.tgclients import TGClients
 from utils import get_item_channel
 import time
@@ -29,31 +29,41 @@ class CopyBatch():
     pass
 
   
-  async def process(self, sourceFolder: TGFolder, sources: list[TGFile]):
+  async def process(self, sources: list[TGFile]):
 
     client = TGClients.next_client()
 
-    total_file = 1
+    total_processed_file = 0
+    total_forwarded_file = 0
 
     for source in sources:
       
       try:
-        newfile, has_been_forwarded_file = await self.process_item(client, sourceFolder, source)
+        Log.info(f"processing '{source.filename}'")
+        newfile, has_been_forwarded_file = await self.process_item(client, source)
+
+        Log.info(f"'{newfile.filename}' has been correctly processed")
+
+        total_processed_file = total_processed_file + 1
 
         if has_been_forwarded_file:
           # operation on telegram: calculate batch and timer for pause
-          total_file = total_file + 1
+          total_forwarded_file = total_forwarded_file + 1
 
-        if total_file % self.batch == 0:
+        if total_forwarded_file % self.batch == 0:
           Log.info(f"pause {self.timeout}s after {self.batch} files")
           time.sleep( self.timeout )
           client = TGClients.next_client()
       except Exception as E:
-        Log.error(E, exc_info=True)
+        Log.error(f"file: '{source.filename}' got errors", exc_info=True)
         pass
+    
+
+    Log.info(f"Completed: {total_processed_file} / {len(sources)} file correctly processed")
+    return total_processed_file
 
 
-  async def process_item(self, client: TelegramApi, sourceFolder: TGFolder, source: TGFile, session= None):
+  async def process_item(self, client: TelegramApi, source: TGFile, session= None):
 
     has_been_forwarded_file = False
 
@@ -67,6 +77,7 @@ class CopyBatch():
         existsFolder = getItemByFilename( folder.filename, destFolder.id, 'folder')
         if existsFolder is None:
           # create folder
+          Log.debug(f"creating folder '{folder.filename}' in '{destFolder.filename}'")
           destFolder = create_folder(TGFolder(
             filename = folder.filename,
             channel = folder.channel,
@@ -75,7 +86,7 @@ class CopyBatch():
           continue
         else:
           destFolder = existsFolder
-      if folder.id == sourceFolder.id:
+      if folder.id == source.parentfolder:
         start_creating_folder = True
 
 
@@ -83,6 +94,7 @@ class CopyBatch():
     # check file already exists
     exists_file = getItemByFilename( source.filename, destFolder.id )
     if exists_file:
+      Log.debug(f"file '{source.filename}' already exists in destination folder '{destFolder.filename}' [{destFolder.id}]")
       raise Exception(f"file {source.filename} already exists in destination")
 
 
@@ -96,27 +108,41 @@ class CopyBatch():
 
     with transaction:
 
+      # prepare new file to be saved into DB
+      newdata = source.clone()
+      newdata.state = 'TEMP'
+      newdata.id = None
+
+      # try to create new file (check exists)
+      Log.debug(f"creating TEMP file '{newdata.filename}'")
+      newFileData = create_file(newdata, destFolder.id, session= session)
+
       if source.is_on_telegram():
         # file is on telegram
-        parts = source.parts
+        newparts = newFileData.parts
 
-        # if dest_channel and source_channel != dest_channel:
-        # move file on telegram
-        parts = await self.forward_file_between_channels(client, source, source_channel, dest_channel)
-        has_been_forwarded_file = True
+        if dest_channel and source_channel != dest_channel:
+          # move file on telegram
+          newparts = await self.forward_file_between_channels(client, newFileData, source_channel, dest_channel)
+          has_been_forwarded_file = True
 
-        source.id = None # force create a new file
-        source.parts = parts
-        source.channel = dest_channel or source_channel
-        source.content = None
-        newFileData = create_file(source, destFolder.id, session= session)
+        newFileData.parts = newparts
+        newFileData.channel = dest_channel or source_channel
+        newFileData.content = None
+        
       
       else:
         # file is on local db, just copy file
-        source.id = None # force create a new file
-        source.parts = None
-        source.channel = dest_channel or source_channel
-        newFileData = create_file(source, destFolder.id, session= session)
+        newFileData.parts = None
+        newFileData.channel = dest_channel or source_channel
+
+        # content has been already copied (just to be sure)
+        newFileData.content = source.content
+      
+      # file has been processed: set 'ACTIVE'
+      newFileData.state = 'ACTIVE'
+      
+      update_file(newdata, newFileData, destFolder.id, session)
     
     # delete original file parts because of `move`
     # if delete_original:
@@ -132,7 +158,7 @@ class CopyBatch():
 
   async def forward_file_between_channels(self, client: TelegramApi, source: TGFile, source_channel, dest_channel):
 
-
+    Log.debug(f"try to forward file parts from '{source_channel}' to '{dest_channel}'")
     newParts = []
     for part in source.parts:
       message = await client.get_message(source_channel, part.messageid)
@@ -166,9 +192,9 @@ class CopyBatch():
         
         else: 
           Log.warning(f"file_id is different: {str(part.fileid)} - {str(media.filedata.media_id)}, channel: {source_channel}, message: {part.messageid}")
-          newParts.append(part)
+          raise Exception(f"file_id is different: {str(part.fileid)} - {str(media.filedata.media_id)}, channel: {source_channel}, message: {part.messageid}")
       else:
         Log.warning(f"cannot get message from channel: {source_channel} -> {part.messageid}")
-        newParts.append(part)
+        raise Exception(f"cannot get message from channel: {source_channel} -> {part.messageid}")
     
     return newParts

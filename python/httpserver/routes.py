@@ -187,14 +187,18 @@ async def download_file(request: web.Request):
   
     except ConnectionResetError:
       service.stop()
-      Log.warn("connection aborted")
+      Log.warning("connection aborted")
       return
+
+    except Exception as E:
+      Log.error(E)
     
   
-  return web.Response(
-    status=422,
-    body="something went wrong"
-  )
+  try:
+    # close connection
+    await stream.write_eof()
+  except Exception:
+    Log.warning(f"cannot write_eof")
 
 
 @routes.post(r"/folders/{fldid}/files/{filename}")
