@@ -11,13 +11,15 @@ class CopyBatch():
   
   aborted = False
   destinationRootFolder = None
+  sourceFolder = None
   batch = 10
-  timeout = 1
+  timeout = 2
 
   current_operation_index = 0
 
-  def __init__(self, destination: TGFolder, batch = 10, timeout = 1):
+  def __init__(self, sourceFolder: TGFolder | TGFile, destination: TGFolder, batch = 10, timeout = 1):
     self.destinationRootFolder = destination
+    self.sourceFolder = sourceFolder
     self.batch = batch
     self.timeout = timeout
 
@@ -77,7 +79,7 @@ class CopyBatch():
         existsFolder = getItemByFilename( folder.filename, destFolder.id, 'folder')
         if existsFolder is None:
           # create folder
-          Log.debug(f"creating folder '{folder.filename}' in '{destFolder.filename}'")
+          Log.info(f"creating folder '{folder.filename}' in '{destFolder.filename}'")
           destFolder = create_folder(TGFolder(
             filename = folder.filename,
             channel = folder.channel,
@@ -86,7 +88,7 @@ class CopyBatch():
           continue
         else:
           destFolder = existsFolder
-      if folder.id == source.parentfolder:
+      if folder.id == self.sourceFolder.id:
         start_creating_folder = True
 
 

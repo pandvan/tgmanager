@@ -211,6 +211,9 @@ class FSApi():
     source = getItem( _source.id )
     dest = getItem( _dest.id )
 
+    source_parent = source
+    if source_parent.type != 'folder':
+      source_parent = getItem( source.parentfolder )
     
     dest_channel = get_item_channel(dest, allow_root= False)
     
@@ -233,7 +236,10 @@ class FSApi():
       pass
 
 
-    copybatch = CopyBatch(dest)
+    copybatch = CopyBatch(
+      sourceFolder = source_parent,
+      destination= dest
+    )
     
     if source.type != 'folder':
       await copybatch.process([ source ])
