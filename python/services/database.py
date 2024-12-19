@@ -70,6 +70,10 @@ class TGItem:
     else:
       return 0
   
+  def is_on_telegram(self):
+    return self.content is None or self.content_length() == 0 and self.parts is not None and len(self.parts) > 0
+  
+  
   def toDB(self, for_web = False):
 
     parts = None
@@ -229,7 +233,7 @@ def remap(ret):
   return item
 
 
-def getItem(id, state = 'ACTIVE', session = None):
+def _getItem(id, state = 'ACTIVE', session = None):
   filter = {'id': id}
   if state is not None:
     filter['state'] = state
@@ -238,6 +242,15 @@ def getItem(id, state = 'ACTIVE', session = None):
 
   if ret is not None:
     return remap(ret)
+
+def getItem(id, state = 'ACTIVE', session = None):
+
+  items = raw_list_items_in_folder(itemId = id, state = state, session= session)
+
+  if items._has_next() > 0:
+    return remap( items.next() )
+  
+  return None
 
 def getChildren(folderId, type = None, state = 'ACTIVE', ordered = False, session= None):
   filter = {
@@ -475,6 +488,10 @@ def update_file(file: TGFile, data: TGFile, parent = None, session = None):
     else:
       insert['content'] = data.content
   
+  # TODO: check if pass content or inherit from original file
+  # elif file.content:
+  #   insert['content'] = file.content
+  
   elif data.parts is None:
     if file.parts is not None:
       insert['parts'] = []
@@ -580,24 +597,30 @@ def create_collections(database):
                 },
                 'type': {
                   'bsonType': 'string',
-                  'description': 'identify folder or mimetype'
+                  'description': 'identify `folder` or file mimetype'
                 },
                 'state': {
                   'bsonType': 'string',
-                  'description': 'values: active, temp, deleted'
+                  'description': 'values: ACTIVE, TEMP, DELETED'
                 }
             }
         }
     })
+  except Exception as e:
+    Log.warning(f"error occurred while creating schema for entries")
+    Log.warning(e)
+  
+  try:
     coll = database['entries']
 
-    coll.create_index(("id", TEXT), unique=True)
+    coll.create_index( ("id", TEXT), unique=True)
     coll.create_index( ('filename', TEXT) )
     coll.create_index( ('parentfolder', TEXT) )
+    coll.create_index( ['filename', 'parentfolder', 'state'] )
     
   except Exception as e:
-    Log.warn(f"error occurred while create schema for entries")
-    Log.warn(e)
+    Log.warning(f"error occurred while creating indexes for entries")
+    Log.warning(e)
   
 
   try:
@@ -605,8 +628,8 @@ def create_collections(database):
     database.create_collection('tgsessions')
     
   except Exception as e:
-    Log.warn(f"error occurred while create schema for tgsessions")
-    Log.warn(e)
+    Log.warning(f"error occurred while create schema for tgsessions")
+    Log.warning(e)
 
 def check_transaction():
 
@@ -678,7 +701,7 @@ def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False
       }
     })
   
-  if state is not None:
+  if state is not None and itemId != ROOT_ID:
     aggregation.append({
       '$match': {
         'path.state': state

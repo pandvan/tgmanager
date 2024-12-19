@@ -46,10 +46,19 @@ class Copy():
     
     destItem = self.fsapi.get_last_folder(destination)
     if destItem is None:
-      destination_folder = self.fsapi.create_folder_recursive(destination)
+      # copy any item into a new folder
+      destItem = self.fsapi.create_folder_recursive(destination)
     
     elif sourceItem.type == 'folder' and destItem.type != 'folder' :
-      raise Exception(f"cannot copy the folder '{sourceItem.filename}' into file '{destItem.filename}'")
+      # FAIL: copy folder into file
+      raise Exception(f"cannot copy folder '{sourceItem.filename}' into file '{destItem.filename}'")
+    elif sourceItem.type != 'folder' and destItem.type != 'folder':
+      # FAIL: copy file in an already existsing file
+      raise Exception(f"cannot copy file '{sourceItem.filename}' because '{destItem.filename}' already exists")
+    else:
+      # OK: copy folder into folder
+      # OK: copy file into folder
+      pass
 
     # items_to_copy = []
 
@@ -60,8 +69,7 @@ class Copy():
     # else:
     #   items_to_copy = [ sourceItem ]
     
-
-    await self.fsapi.move_or_copy(source_path, destination, is_move= False)
+    await self.fsapi.move_or_copy(sourceItem, destItem, is_move= False)
 
     Log.info('Completed!')
 

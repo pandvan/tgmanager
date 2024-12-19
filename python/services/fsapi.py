@@ -5,8 +5,10 @@ from configuration import Config
 from services.telegram import TelegramApi
 import mimetypes
 from services.downloader import Downloader
+from services.copybatch import CopyBatch
 from services.tgclients import TGClients
 from services.uploader import Uploader
+from utils import get_item_channel
 import os
 
 Log = logging.getLogger('FSApi')
@@ -190,9 +192,63 @@ class FSApi():
     return await self.move_or_copy(pathFrom, pathTo, True)
   
   async def copy(self, pathFrom: str, pathTo: str):
-    return await self.move_or_copy(pathFrom, pathTo, False)
 
-  async def move_or_copy(self, pathFrom: str, pathTo: str, is_move = False):
+    source = self.get_last_folder(pathFrom)
+    if source is None:
+      raise Exception(f"'{pathFrom}' not exists")
+
+    dest = self.get_last_folder()
+    if dest is None:
+      # destination not exists, create a new one
+      dest = self.create_folder_recursive(pathTo)
+    
+    return await self.move_or_copy(source, dest, False)
+  
+
+  async def move_or_copy(self, _source: TGFolder | TGFile, _dest: TGFolder, is_move = False):
+
+    # get `path` added fields via 'getItem'
+    source = getItem( _source.id )
+    dest = getItem( _dest.id )
+
+    
+    source_channel = get_item_channel(source,allow_root= False)
+    dest_channel = get_item_channel(dest,allow_root= False)
+    
+    if not dest_channel:
+      Log.warning(f"files will be KEPT in the same channel")
+      # dest_channel = Config.telegram.upload.channel
+    
+
+    # check integrity of 'copy/move' process
+    if source.type == 'folder' and dest.type != 'folder' :
+      # FAIL: copy/move folder into file
+      raise Exception(f"cannot copy/move folder '{source.filename}' into file '{dest.filename}'")
+    elif source.type != 'folder' and dest.type != 'folder':
+      # FAIL: copy file in an already existsing file
+      raise Exception(f"cannot copy file '{source.filename}' because '{dest.filename}' already exists")
+    else:
+      # OK: copy folder into folder
+      # OK: copy file into folder
+      Log.info(f"ok, proceed to copy from '{source.filename}' to '{dest.filename}'")
+      pass
+
+
+    copybatch = CopyBatch(dest)
+    
+    if source.type != 'folder':
+      await copybatch.process([source])
+    
+    else:
+      Log.debug(f"getting all files from source: '{source.filename}' ...")
+      all_files = list_file_in_folder_recursively(source.id, skip_files= False, skip_folders= True, state= 'ACTIVE')
+      Log.info(f"found {len(all_files)} files")
+      await copybatch.process( source, all_files )
+
+
+
+
+  async def _move_or_copy(self, pathFrom: str, pathTo: str, is_move = False):
 
     pathsTo = self.split_path(pathTo)
 
@@ -501,7 +557,6 @@ class FSApi():
 
         Log.debug(f"file has been correctly uploaded, id: '{dbFile.id}'")
 
-
       uploader.on('portionUploaded', on_portion_upload)
 
       Log.info(f"file '{filename}' is being uploaded, id: '{dbFile.id}'")
@@ -612,20 +667,20 @@ class FSApi():
       if message:
         media = TelegramApi.get_media_from_message(message)
         if str(part.fileid) == str(media.filedata.media_id):
-          resp = await client.forward_message(source_ch, dest_ch, part.messageid)
+          resp = await client.copy_message(source_ch, dest_ch, part.messageid)
           has_part = False
           for update in resp.updates:
             if getattr(update, 'message', None) is not None:
-              newParts.append(
-                TGPart({
-                  'messageid': update.message.id,
-                  'originalfilename': part.originalfilename,
-                  'hash': part.hash,
-                  'fileid': part.fileid,
-                  'size': part.size,
-                  'index': part.index
-                })
-              )
+              # newParts.append(
+              #   TGPart({
+              #     'messageid': update.message.id,
+              #     'originalfilename': part.originalfilename,
+              #     'hash': part.hash,
+              #     'fileid': part.fileid,
+              #     'size': part.size,
+              #     'index': part.index
+              #   })
+              # )
               has_part = True
               break
 

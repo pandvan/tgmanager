@@ -109,21 +109,29 @@ async def download_file(request: web.Request):
 
   Log.info(f"file requested is: {file_id}")
 
-  dbFile = getItem(file_id)
+  dbFile = getItem(file_id, state= None)
 
   if dbFile is None:
-    Log.info(f"item not found in db {file_id}")
+    Log.info(f"invalid ID {file_id}: not exists")
     return web.Response(
       status=404,
-      body=f"file is missing with the id {file_id}"
+      body=f"invalid ID '{file_id}': not exists"
     )
 
 
-  if dbFile.type == 'folder':
-    Log.error(f"requested item is a folder {dbFile.id}")
+  if dbFile.state != 'ACTIVE':
+    Log.info(f"item '{file_id}': is not available")
     return web.Response(
       status=422,
-      body=f"requested item is not a file"
+      body=f"item '{file_id}': is not available"
+    )
+    
+
+  if dbFile.type == 'folder':
+    Log.error(f"requested item is a folder [{dbFile.id}] '{dbFile.filename}")
+    return web.Response(
+      status=422,
+      body=f"requested item is a folder [{dbFile.id}] '{dbFile.filename}"
     )
   
   # parse Range header

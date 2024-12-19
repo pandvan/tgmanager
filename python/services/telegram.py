@@ -272,29 +272,37 @@ class TelegramApi:
 
     return await self.api.invoke(fn_call)
   
-  async def forward_message(self, channel_id_from, channel_id_to, msg_id):
-    Log.info(f"forward message between channel: {channel_id_from} -> {channel_id_to}")
+  async def copy_message(self, channel_id_from, channel_id_to, msg_id):
+    Log.info(f"copy message between channel: {channel_id_from} -> {channel_id_to}")
 
     channel_id_from = int(channel_id_from)
   
     channel_id_to = int(channel_id_to)
 
-    channel_from = await self.api.resolve_peer( channel_id_from )
-    channel_to = await self.api.resolve_peer( channel_id_to )
+    # rand_id = TelegramApi.generate_id()
+    # Log.debug(f"Generated ID  for ForwardMessages: {rand_id}")
 
-    rand_id = TelegramApi.generate_id()
-    Log.debug(f"Generated ID  for ForwardMessages: {rand_id}")
+    # fn_call = raw.functions.messages.ForwardMessages(
+    #   silent = True,
+    #   drop_author = True,
+    #   from_peer = channel_from,
+    #   to_peer = channel_to,
+    #   id = [msg_id],
+    #   random_id = [ int( TelegramApi.generate_id() ) ]
+    # )
+    # return await self.api.inoke( fn_call )
 
-    fn_call = raw.functions.messages.ForwardMessages(
-      silent = True,
-      drop_author = True,
-      from_peer = channel_from,
-      to_peer = channel_to,
-      id = [msg_id],
-      random_id = [ int( TelegramApi.generate_id() ) ]
+    return await self.api.copy_message(
+      chat_id= channel_id_to,
+      from_chat_id= channel_id_from,
+      message_id= msg_id,
+      disable_notification= True
     )
 
-    return await self.api.invoke( fn_call )
+  async def get_chat(self, id: int):
+    fn_call = raw.functions.channels.GetChannels(id= [id])
+
+    await self.api.invoke(fn_call)
   
   async def delete_message(self, channel_id, msg_id):
 

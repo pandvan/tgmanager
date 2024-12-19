@@ -2,7 +2,24 @@ import struct, base64
 from telethon.sessions.string import StringSession
 from telethon.sync import TelegramClient
 from pyrogram.storage.storage import Storage
+from services.database import getItem, TGFolder, TGFile, ROOT_ID
+
+
+
+# pyrogram fix:
 from pyrogram import utils
+
+def get_peer_type_new(peer_id: int) -> str:
+    peer_id_str = str(peer_id)
+    if not peer_id_str.startswith("-"):
+        return "user"
+    elif peer_id_str.startswith("-100"):
+        return "channel"
+    else:
+        return "chat"
+
+utils.get_peer_type = get_peer_type_new
+
 
 class EventEmitter(object):
   callbacks = None
@@ -21,6 +38,24 @@ class EventEmitter(object):
       for callback in self.callbacks[event_name]:
         if callback is not None:
           callback(*args)
+
+
+def get_item_channel(folder: TGFolder | TGFile, allow_root = True):
+
+    # add extra fields such as `path`
+    item = getItem(folder.id)
+    items = list(reversed(item.path[0:])) # slice array
+
+    items.insert(0, folder)
+
+    for currentItem in items:
+      if currentItem.id == ROOT_ID:
+        # returns ROOT channel if it is allowed, else None
+        return currentItem.channel if allow_root else None
+      if currentItem.channel:
+        return currentItem.channel
+    
+    return None
 
 
 # Both Telethon and Pyrogram should be Installed
