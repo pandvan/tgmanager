@@ -182,13 +182,12 @@ class CopyBatch():
           #     break
               
           newParts.append(newpart)
-          break
           
-        # pause after X operations
-        self.current_operation_index = self.current_operation_index + 1
-        if self.current_operation_index % self.batch == 0:
-          Log.info(f"pause {self.timeout}s after {self.batch} operations")
-          time.sleep( self.timeout )
+          # pause after X operations
+          self.current_operation_index = self.current_operation_index + 1
+          if self.current_operation_index % self.batch == 0:
+            Log.info(f"pause {self.timeout}s after {self.batch} operations")
+            time.sleep( self.timeout )
         
         else: 
           Log.warning(f"file_id is different: {str(part.fileid)} - {str(media.filedata.media_id)}, channel: {source_channel}, message: {part.messageid}")
