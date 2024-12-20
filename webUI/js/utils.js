@@ -1,7 +1,31 @@
+let startAsyncLoading = null;
+let stopAsyncLoading = null;
+
+export function setAsyncLoadingStart(fn) {
+  startAsyncLoading = fn
+}
+
+export function setAsyncLoadingStop(fn) {
+  stopAsyncLoading = fn
+}
+
+async function request(url, options) {
+
+  try {
+
+    startAsyncLoading && startAsyncLoading()
+
+    return await fetch(url, options);
+
+  } finally {
+    stopAsyncLoading && stopAsyncLoading()
+  }
+
+}
 
 
 export async function getChildren(folderId) {
-  const rsp = await fetch(`/folders/${folderId}` );
+  const rsp = await request(`/folders/${folderId}` );
   return await rsp.json();
 }
 
@@ -38,7 +62,7 @@ export function humanFileSize(bytes, si=false, dp=1, lower=false) {
 }
 
 export async function deleteFolder(id) {
-  const rsp = await fetch(`/folders/${id}`, {
+  const rsp = await request(`/folders/${id}`, {
     method: 'DELETE'
   });
   if (rsp.status < 200 || rsp.status > 299) {
@@ -49,7 +73,7 @@ export async function deleteFolder(id) {
 
 
 export async function deleteFile(id) {
-  const rsp = await fetch(`/files/${id}`, {
+  const rsp = await request(`/files/${id}`, {
     method: 'DELETE'
   });
   if (rsp.status < 200 || rsp.status > 299) {
@@ -60,7 +84,7 @@ export async function deleteFile(id) {
 
 export async function mergeFiles(items) {
   const first = items.splice(0, 1)[0];
-  const rsp = await fetch(`/files/${first.id}/merge?part_ids=${items.map(i => i.id).join(',')}`, {
+  const rsp = await request(`/files/${first.id}/merge?part_ids=${items.map(i => i.id).join(',')}`, {
     method: 'put'
   });
   if (rsp.status < 200 || rsp.status > 299) {
@@ -70,7 +94,7 @@ export async function mergeFiles(items) {
 }
 
 export async function createFolder(currentFolder, foldername) {
-  const rsp = await fetch(`/folders/${currentFolder.id}/folder/${foldername}`, {
+  const rsp = await request(`/folders/${currentFolder.id}/folder/${foldername}`, {
     method: 'POST'
   });
   if (rsp.status < 200 || rsp.status > 299) {
@@ -81,7 +105,7 @@ export async function createFolder(currentFolder, foldername) {
 
 
 export async function modifyFolder(folder, data) {
-  const rsp = await fetch(`/folders/${folder.id}`, {
+  const rsp = await request(`/folders/${folder.id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
@@ -92,7 +116,7 @@ export async function modifyFolder(folder, data) {
 }
 
 export async function modifyFile(file, data) {
-  const rsp = await fetch(`/files/${file.id}`, {
+  const rsp = await request(`/files/${file.id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   });
@@ -104,7 +128,7 @@ export async function modifyFile(file, data) {
 
 
 export async function moveFilesAndFolders(destFolder, items) {
-  const rsp = await fetch(`/folders/${destFolder.id}/move`, {
+  const rsp = await request(`/folders/${destFolder.id}/move`, {
     method: 'POST',
     body: JSON.stringify({items: items.map(i => i.id)})
   });

@@ -20,6 +20,17 @@ export function Overlay(props) {
     children
   } = props;
 
+  const [ confirming, setConfirming ] = useState(false);
+
+  const onConfirmInternal = useCallback(() => {
+    setConfirming(true);
+    try {
+      onConfirm()
+    } finally {
+      setConfirming(false);
+    }
+  }, [])
+
   return (
     <Modal
       show={isShown}
@@ -35,10 +46,10 @@ export function Overlay(props) {
         {children}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={() => onClose()} >
+        <Button variant="secondary" onClick={() => onClose()}>
           Close
         </Button>
-        <Button variant="primary" onClick={() => onConfirm()}>Ok</Button>
+        <Button variant="primary" onClick={() => onConfirmInternal()} disabled={confirming}>Ok</Button>
       </Modal.Footer>
     </Modal>
   )

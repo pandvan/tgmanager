@@ -33,7 +33,6 @@ def load_config(args):
   
   __Config.update({
     "telegram": {
-      "database": str( getYamlValue(yamlFile, ['telegram', 'database']) ) == 'true',
       "users": getYamlValue(yamlFile, ['telegram', 'users']),
       "upload": {
         "min_size": uploadMinSize,
@@ -46,7 +45,7 @@ def load_config(args):
     },
     "data": os.path.realpath( os.path.join( CWD, args.data or getYamlValue(yamlFile, ['data']) or './data/' ) ),
     
-    "db": get_env('DB') or getYamlValue(yamlFile, ['db']),
+    "db": get_env('DB') or args.database or getYamlValue(yamlFile, ['db']),
     
     "logger": args.log or getYamlValue(yamlFile, ['logger']) or 'info',
 

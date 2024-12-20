@@ -170,7 +170,6 @@ export function Folder(props) {
 
   return (
     <>
-      {loading && (<h5>loading</h5>)}
       {!loading &&
         items.map((item) => {
           if ( (item.type == 'folder' && showFolders) || (item.type != 'folder' && showFiles) ) {

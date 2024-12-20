@@ -20,6 +20,7 @@ FSApi = FSApiLib(root)
 @routes.get("/index")
 @routes.get("/index.html")
 async def homepage(request: web.Request):
+  Log.info(f"respond homepage")
   return web.FileResponse( os.path.join(CWD, 'public/index.html') )
 
 
@@ -49,6 +50,9 @@ async def get_folder(request: web.Request):
   items = []
   for item in children[1:]:
     items.append( item.toDB(True) )
+  
+  Log.info(f"respond folder '{folder.filename}' [{folder.id}] with {len(items)} items")
+
   return web.json_response( items )
 
 @routes.post(r"/folders/{fld_id}/folder/{foldername}")
@@ -92,6 +96,9 @@ async def create_folder(request: web.Request):
   
   path = FSApiLib.build_path(parentfolder)
   folder_path = path + '/' + foldername
+
+  Log.info(f"creating folder '{folder_path}' in '{parentfolder.filename}")
+
   new_folder = await FSApi.create(folder_path, True)
 
   return web.Response(
@@ -235,6 +242,8 @@ async def upload_file(request: web.Request):
 
       file_path = path + '/' + filename
 
+      Log.info(f"creating file '{file_path}' in '{parent.filename}")
+
       service = await FSApi.create_file_with_content(file_path)
 
       if service:
@@ -277,7 +286,7 @@ async def delete_folder(request: web.Request):
       body=f"requested item is not a valid folder"
     )
   
-
+  Log.info(f"deleting folder '{folder}'")
   path = FSApiLib.build_path(folder)
 
   try:
@@ -431,6 +440,8 @@ async def rename_folder(request: web.Request):
   except Exception as E:
     pass
 
+  Log.info(f"renaming folder '{folder.filename}' with data: '{data}'")
+
   newData = TGFolder(
     filename = data['filename'] if 'filename' in data and data['filename'] else folder.filename,
     channel = data['channel'] if 'channel' in data else folder.channel
@@ -445,7 +456,7 @@ async def rename_file(request: web.Request):
 
   file_id = request.match_info["file_id"]
 
-  Log.info(f"file to be merge into is: {file_id}")
+  Log.info(f"file rename is: {file_id}")
 
   dbFile = getItem(file_id)
 
@@ -468,6 +479,7 @@ async def rename_file(request: web.Request):
 
   newfilename = data['filename'] if 'filename' in data and data['filename'] else dbFile.filename
 
+  Log.info(f"renaming file '{dbFile.filename}' with data: '{data}'")
 
   newData = TGFile(
     filename = newfilename,
@@ -478,49 +490,48 @@ async def rename_file(request: web.Request):
   return web.json_response( newFileData.toDB(True) )
 
 
-@routes.post(r"/folders/{fld_id}/move")
-async def move_items_into_folder(request: web.Request):
-  fld_id = request.match_info["fld_id"]
+# @routes.post(r"/folders/{fld_id}/move")
+# async def move_items_into_folder(request: web.Request):
+#   fld_id = request.match_info["fld_id"]
 
-  if not fld_id:
-    Log.error(f"no folder found with given ID: {fld_id}")
-    return web.Response(
-      status=400,
-      body=f"invalid folder id"
-    )
+#   if not fld_id:
+#     Log.error(f"no folder found with given ID: {fld_id}")
+#     return web.Response(
+#       status=400,
+#       body=f"invalid folder id"
+#     )
 
-  folder = getItem(fld_id)
-  if not folder or folder.type != 'folder':
-    Log.error(f"specified ID is not folder or not exists")
-    return web.Response(
-      status=422,
-      body=f"requested item is not a folder"
-    )
+#   folder = getItem(fld_id)
+#   if not folder or folder.type != 'folder':
+#     Log.error(f"specified ID is not folder or not exists")
+#     return web.Response(
+#       status=422,
+#       body=f"requested item is not a folder"
+#     )
 
-  data = {}
-  try:
-    data = await request.json()
-  except Exception as E:
-    pass
+#   data = {}
+#   try:
+#     data = await request.json()
+#   except Exception as E:
+#     pass
 
-  ids = data['items'] if 'items' in data else []
+#   ids = data['items'] if 'items' in data else []
 
-  (session, transaction) = start_session()
+#   (session, transaction) = start_session()
 
-  with transaction:
-    for id in ids:
-      item = getItem(id, session= session)
+#   with transaction:
+#     for id in ids:
+#       item = getItem(id, session= session)
 
-      if item is not None:
-        if item.type == 'folder':
-          update_folder(item, item, parent = fld_id, session = session)
-        else:
-          update_file(item, item, fld_id, session = session)
-      else:
-        Log.warning(f"item not found with id: {id}")
+#       if item is not None:
+#         if item.type == 'folder':
+#           update_folder(item, item, parent = fld_id, session = session)
+#         else:
+#           update_file(item, item, fld_id, session = session)
+#       else:
+#         Log.warning(f"item not found with id: {id}")
   
-  return web.json_response( {'ok': True} )
-
+#   return web.json_response( {'ok': True} )
 
   
 

@@ -110,7 +110,7 @@ export default function Listing(props) {
 
   return (
     <div>
-      <nav class="navbar navbar-expand-lg navbar-light px-4 bg-light justify-content-between" style={{
+      <nav className="navbar navbar-expand-lg navbar-light px-4 bg-light justify-content-between" style={{
           position: 'fixed',
           width: '100%',
           height: 40,
