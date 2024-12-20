@@ -38,13 +38,13 @@ class CopyBatch():
     total_processed_file = 0
     total_forwarded_file = 0
 
-    for source in sources:
+    for index, source in sources:
       
       try:
-        Log.info(f"processing '{source.filename}'")
+        Log.info(f"[{index}] processing '{source.filename}' [{source.id}]")
         newfile, has_been_forwarded_file = await self.process_item(client, source)
 
-        Log.info(f"'{newfile.filename}' has been correctly processed")
+        Log.info(f"[{index}] '{newfile.filename}' has been correctly processed [{newfile.id}]")
 
         total_processed_file = total_processed_file + 1
 
