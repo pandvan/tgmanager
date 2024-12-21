@@ -74,8 +74,14 @@ class Strm():
 
       folders = []
       if file.path:
+        to_be_added = False
         for p in file.path:
-          folders.append(p.filename if p.filename != 'root' else '')
+          if parent_id == p.id:
+            # add folder to path starting from `parent_id` folder
+            to_be_added = True
+            continue
+          if to_be_added:
+            folders.append(p.filename if p.filename != 'root' else '')
       
       folders.append(file.filename)
 
@@ -95,6 +101,8 @@ class Strm():
 
     if not os.path.exists(dir_path):
       os.makedirs(dir_path)
+    
+    Log.debug(f"processing file: '{destination_full_path}'")
 
     if ( file.content is not None and file.content_length() > 0 ):
 
@@ -124,7 +132,7 @@ class Strm():
       recreate = self.check_file_recreation(newfilename, bytes(strm_txt, 'utf-8'))
 
       if recreate:
-        Log.debug(f"creating file with strm: '{filepath}' ({file.id})")
+        Log.debug(f"creating file as strm: '{filepath}' ({file.id})")
         
         f = open(newfilename, "w")
         f.write( strm_txt )
