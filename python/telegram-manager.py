@@ -18,11 +18,8 @@ for name, logger in logging.root.manager.loggerDict.items():
     if isinstance(logger, logging.Logger):
       logger.setLevel(logging.WARNING)
 
-async def start():
-  Log.info('Starting application')
 
-  init_database()
-
+async def init_tg_users():
   for user in Config.telegram.users:
     session = get_tg_session(user.name)
     Log.debug(f"got session from DB for user: {user.name} -> {session is not None}")
@@ -33,8 +30,12 @@ async def start():
       save_tg_session( client._name, tgsess )
     Log.info(f"Telegram is authenticated for user {user.name}")
 
-  
   TGClients.check()
+
+async def start():
+  Log.info('Starting application')
+
+  init_database()
 
   if initialize.Args.list is True:
      
@@ -46,6 +47,8 @@ async def start():
     # enable sync command
     from commands.sync import Sync
 
+    await init_tg_users()
+
     sync = Sync()
     await sync.sync_command(initialize.Args)
   
@@ -53,12 +56,16 @@ async def start():
     # enable sync command
     from commands.copy import Copy
 
+    await init_tg_users()
+
     copy = Copy()
     await copy.copy_command(initialize.Args)
   
   elif initialize.Args.delete:
     # enable sync command
     from commands.deleting import Deleting
+
+    await init_tg_users()
 
     deleting = Deleting()
     await deleting.delete_command(initialize.Args)
@@ -72,6 +79,8 @@ async def start():
       Log.info('starting http server')
       from httpserver import web_server
 
+      await init_tg_users()
+
       server = web.AppRunner(web_server())
       await server.setup()
       await web.TCPSite(server, Config.http.host, Config.http.port).start()
@@ -80,7 +89,6 @@ async def start():
     
       if Config.telegram.bot_token:
         await Bot.start()
-        # await Bot.on_message(None, None)
     
 
     if initialize.Args.strm is True:
@@ -91,13 +99,6 @@ async def start():
       strm = Strm()
       strm.create(initialize.Args)
     
-
-    # root = getItem(ROOT_ID)
-    # fsapi = FSApi(root)
-    # await fsapi.copy('/media/tvshows/Chicago P.D. (2014)', '/media/tvprograms')
-
-    # await idle()
-
   Log.info("Application started!")
 
 
