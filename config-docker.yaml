@@ -1,0 +1,35 @@
+telegram:
+  users:                 # telegram users for authenticate each client. NOTE: each user must be admin in all files' channels!
+    - id: 'xxx'          # telegram userId
+      api_id: 'xxx'      # telegram apiId for given user
+      api_hash: 'xxx'    # telegram apiHash for given user
+
+  upload:
+    min_size: 0           # minimum size (in bytes): file larger than this value will be directly uploaded on telegram. Otherwise it will keep only in database
+    channel: xxxx         # default channel_id used to upload file on telegram. If specified in parent folder, it will use that channel, otherwise it will use this value
+
+  bot_token: xxxx         # bot token used for listen events on channels
+
+data: ./data              # default data folder
+
+db: mongo        # database file name
+
+logger: debug  # set log level
+
+http:
+  host: 0.0.0.0           # http server host binding
+  port: 3000              # http server configuration
+  user: user              # user authentication for Basic Auth
+  pass: password          # pass authentication for Basic Auth
+  debug: false            # enable / disable debug log for each request
+
+webdav:                   # webdav server configuration
+  port: 1900              # webdav server port
+  user: user              # user authentication
+  pass: password          # pass authentication
+  debug: false            # enable / disable debug log
+
+strm:                     # strm generation configuration
+  folder: /path/to/folder # destination folder
+  clear_folder: true      # empties the destination folder before re-creating entire folders tree
+  url: http://127.0.0.1:3000/files/{fileid}       # http URL for downloader server (NOTE: {fileid} is required as placeholder)

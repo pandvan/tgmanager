@@ -20,7 +20,7 @@ FN_CALLBACK = []
 
 
 def NOW():
-  return datetime.datetime.now(datetime.UTC)
+  return datetime.datetime.now(datetime.timezone.utc)
 
 
 class TGPart:
@@ -31,7 +31,7 @@ class TGPart:
     self.size = size
     self.index = index
     self.hash = hash
-  
+
   def toDB(self):
     return {
       'messageid': self.messageid,
@@ -60,20 +60,20 @@ class TGItem:
     self.mtime = mtime or NOW()
 
     self.path = path
-  
+
   def is_deleted(self):
     return self.state == 'DELETED'
-  
+
   def content_length(self):
     if self.content is not None:
       return len( self.content )
     else:
       return 0
-  
+
   def is_on_telegram(self):
     return self.content is None or self.content_length() == 0 and self.parts is not None and len(self.parts) > 0
-  
-  
+
+
   def toDB(self, for_web = False):
 
     parts = None
@@ -97,7 +97,7 @@ class TGItem:
     }
     if for_web:
       data['content_length'] = self.content_length()
-    
+
     return data
 
   def clone(self):
@@ -149,7 +149,7 @@ class TGItem:
           mtime = path.mtime
         ))
       newitem.path = newpaths
-    
+
     return newitem
 
 class TGFolder(TGItem):
@@ -167,7 +167,7 @@ class TGFolder(TGItem):
 
     self.ctime = ctime or NOW()
     self.mtime = mtime or NOW()
-  
+
 
 class TGFile(TGItem):
   def __init__(self, id = '', filename = '', channel = '', parts: list[TGPart] | None = None, parentfolder = '', type = '', info = {}, content: bytes | None = None, state = 'ACTIVE', ctime = None, mtime = None):
@@ -183,7 +183,7 @@ class TGFile(TGItem):
 
     self.ctime = ctime or NOW()
     self.mtime = mtime or NOW()
-  
+
 
 def addEvent(fn):
   FN_CALLBACK.append(fn)
@@ -236,11 +236,11 @@ def start_session():
 def remap(ret):
   if type(ret) == TGFile or type(ret) == TGFolder:
     return remap(ret.toDB())
-  
+
   item = TGFolder()
   if ret['type'] != 'folder':
     item = TGFile()
-  
+
   item.id = ret['id'] if 'id' in ret else None
   item.filename = ret['filename']
   item.channel = ret['channel'] if 'channel' in ret else None
@@ -271,7 +271,7 @@ def remap(ret):
     for p in ret['path']:
       pFolder = remap(p)
       collpath.append( pFolder )
-    
+
     # paths = []
     # pf_id = item.parentfolder
     # while pf_id and len(coll) > 0:
@@ -279,7 +279,7 @@ def remap(ret):
     #   del coll[ pf_id ]
     #   paths.append( p )
     #   pf_id = p.parentfolder
-    
+
     item.path = collpath
 
   return item
@@ -301,7 +301,7 @@ def getItem(id, state = 'ACTIVE', session = None):
 
   if items._has_next() > 0:
     return remap( items.next() )
-  
+
   return None
 
 def getChildren(folderId, type = None, state = 'ACTIVE', ordered = False, session= None):
@@ -358,15 +358,15 @@ def purgeItem(itemId, session = None):
   else:
     # ret = DB.delete_one({'id': itemId}, session = session)
     ret = DB.delete_one({'id': itemId}, session = session)
-  
+
   return ret
 
 
 def getItemByFilename(filename: str, parent: str = None, type: str = None, state = 'ACTIVE', session= None):
   filter = {}
-  if parent is not None: 
+  if parent is not None:
     filter['parentfolder'] = parent
-  
+
   fn = re.sub("/", "-", filename) #, flags=re.IGNORECASE)
   filter['filename'] = fn
 
@@ -407,7 +407,7 @@ def check_exist(filename, parent, type = None, id = None, state= 'ACTIVE', sessi
 
   if type is not None:
     filter['type'] = type
-  
+
   # TODO: check state control
   filter['state'] = state
 
@@ -417,7 +417,7 @@ def check_exist(filename, parent, type = None, id = None, state= 'ACTIVE', sessi
 
 
 def create_folder(folder: TGFolder, parent = None, session = None):
-  
+
   # check existing
   if check_exist(filename= folder.filename, parent= parent or folder.parentfolder, type= 'folder', state= folder.state, session= session):
     raise Exception(f"Folder '{folder.filename}' already exists in '{parent}'")
@@ -456,15 +456,15 @@ def create_folder(folder: TGFolder, parent = None, session = None):
 def update_folder(oldfolder: TGFolder, data: TGFolder, parent = None, session = None):
     # check existing
   if check_exist(
-      filename= data.filename or oldfolder.filename, 
-      parent= parent or data.parentfolder or oldfolder.parentfolder, 
+      filename= data.filename or oldfolder.filename,
+      parent= parent or data.parentfolder or oldfolder.parentfolder,
       type= 'folder',
-      id= data.id or oldfolder.id, 
-      state= data.state or oldfolder.state, 
+      id= data.id or oldfolder.id,
+      state= data.state or oldfolder.state,
       session= session
     ):
     raise Exception(f"Folder '{data.filename}' already exists in '{parent}'")
-  
+
   if not oldfolder.id:
     raise Exception(f"Cannot update folder without id")
 
@@ -478,27 +478,27 @@ def update_folder(oldfolder: TGFolder, data: TGFolder, parent = None, session = 
 
   # we can modify relative channel for this folder
   oldfolder.channel = data.channel if data.channel is not None else oldfolder.channel
-  
+
   ret = DB.update_one({'id': oldfolder.id}, {'$set': oldfolder.toDB()}, session = session)
   return getItem(oldfolder.id, session= session)
 
 
 def create_file(file: TGFile, parent = None, session = None):
-  
+
   # check existing
   if check_exist(filename= file.filename, parent= parent or file.parentfolder, type= file.type, state= file.state, session= session):
     raise Exception(f"File '{file.filename}' already exists in '{parent}'")
 
   if (not file.content or file.content_length() <= 0) and not file.channel:
     raise Exception(f"File {file.filename} has no channel")
-  
+
   _parent_folder = getItem(parent or file.parentfolder)
   if _parent_folder is None:
     raise Exception("specify parent folder")
 
   if _parent_folder.is_deleted():
     raise Exception(f"parent folder {_parent_folder.filename} is deleted")
-    
+
   fn = re.sub("/", "-", file.filename, flags=re.IGNORECASE)
   file.filename = fn
   file.parentfolder = parent or file.parentfolder
@@ -511,10 +511,10 @@ def create_file(file: TGFile, parent = None, session = None):
   if file.content is not None:
     if type( file.content ) is not bytes:
       file.content = base64.b64decode( file.content )
-  
+
   if not file.id:
     file.id = get_UUID()
-    
+
   ret = DB.insert_one( file.toDB(), session= session )
 
   if file.parentfolder:
@@ -531,11 +531,11 @@ def create_file(file: TGFile, parent = None, session = None):
 def update_file(oldfile: TGFile, data: TGFile, parent = None, session = None):
   # check existing
   if check_exist(
-      filename= data.filename or oldfile.filename, 
-      parent= parent or data.parentfolder or oldfile.parentfolder, 
-      type= data.type or oldfile.type, 
-      id= oldfile.id, 
-      state= data.state or oldfile.state, 
+      filename= data.filename or oldfile.filename,
+      parent= parent or data.parentfolder or oldfile.parentfolder,
+      type= data.type or oldfile.type,
+      id= oldfile.id,
+      state= data.state or oldfile.state,
       session= session
     ):
     raise Exception(f"`File '{data.filename or oldfile.filename}' already exists in '{parent or data.parentfolder or oldfile.parentfolder}'")
@@ -561,17 +561,17 @@ def update_file(oldfile: TGFile, data: TGFile, parent = None, session = None):
       insert['content'] = base64.b64decode(data.content)
     else:
       insert['content'] = data.content
-  
+
   # TODO: check if pass content or inherit from original file
   # elif file.content:
   #   insert['content'] = file.content
-  
+
   elif data.parts is None:
     if oldfile.parts is not None:
       insert['parts'] = []
       for p in oldfile.parts:
         insert['parts'].append(p.toDB())
-      
+
       # force reset the original channel, in case of 'rename' from WEbUI
       # WebUI set `channel` to empty string: this resets the channel in DB
       insert['channel'] = data.channel or oldfile.channel
@@ -592,7 +592,7 @@ def get_file_by_message_id_and_channel(msgId: int, channel: str, state = None, s
 
   if state is not None:
     filter['state'] = state
-  
+
   ret = DB.find_one(filter, session= session)
   if ret is not None:
     return remap(ret)
@@ -608,7 +608,7 @@ def get_file_by_filename_and_channel(filename: str, channel: str, msgid: int = N
     'state': { '$not': { '$eq': 'TEMP' } },
     'filename': regexp
   }
-  
+
   if msgid is not None:
     filter['parts.0'] = { '$exists': True }
     filter['parts.messageid'] = msgid
@@ -683,7 +683,7 @@ def create_collections(database):
   except Exception as e:
     Log.warning(f"error occurred while creating schema for entries")
     Log.warning(e)
-  
+
   try:
     coll = database['entries']
 
@@ -691,16 +691,16 @@ def create_collections(database):
     coll.create_index( ('filename', TEXT) )
     coll.create_index( ('parentfolder', TEXT) )
     coll.create_index( ['filename', 'parentfolder', 'state'] )
-    
+
   except Exception as e:
     Log.warning(f"error occurred while creating indexes for entries")
     Log.warning(e)
-  
+
 
   try:
 
     database.create_collection('tgsessions')
-    
+
   except Exception as e:
     Log.warning(f"error occurred while create schema for tgsessions")
     Log.warning(e)
@@ -709,7 +709,7 @@ def check_transaction():
 
   global CAN_TRANSACTION
   CAN_TRANSACTION = False
-  
+
   try:
     session = mongo.start_session()
     transaction = session.start_transaction()
@@ -732,7 +732,7 @@ def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False
         }
       }
     })
-  
+
   if ( skip_folders ):
     aggregation.append({
       '$match': {
@@ -743,13 +743,13 @@ def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False
         }
       }
     })
-  
 
-  lookupData = { 
-    'from': 'entries', 
-    'startWith': '$parentfolder', 
-    'connectFromField': 'parentfolder', 
-    'connectToField': 'id', 
+
+  lookupData = {
+    'from': 'entries',
+    'startWith': '$parentfolder',
+    'connectFromField': 'parentfolder',
+    'connectToField': 'id',
     'depthField': "level",
     'as': 'path'
   }
@@ -767,14 +767,14 @@ def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False
         'path.id': parent
       }
     })
-  
+
   if itemId is not None:
     aggregation.append({
       '$match': {
         'id': itemId
       }
     })
-  
+
   if state is not None and itemId != ROOT_ID:
     aggregation.append({
       '$match': {
@@ -786,7 +786,7 @@ def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False
         'state': state
       }
     })
-  
+
   aggregation.append({
     '$unwind': {
       'path': "$path",
@@ -815,7 +815,7 @@ def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False
       'path': { '$push': "$path" }
     }
   })
-	
+
   aggregation.append({
     '$sort': {
       'filename': 1
@@ -829,7 +829,7 @@ def raw_list_items_in_folder(parent = ROOT_ID, itemId = None, skip_files = False
 def list_file_in_folder_recursively(parent = ROOT_ID, skip_files = False, skip_folders = False, state = None, level= None, session= None):
 
   ret = raw_list_items_in_folder(parent= parent, skip_files= skip_files, skip_folders= skip_folders, state= state, level= level, session= session)
-  
+
   result = []
   for i in ret:
     item = remap(i)
@@ -851,7 +851,7 @@ def watch_changes():
         # even when no changes are returned.
         Log.debug(f"Current resume token: {stream.resume_token}")
         if change is not None:
-            
+
             Log.debug("---")
             Log.debug(f"Change document: {change}")
             Log.debug("---")
