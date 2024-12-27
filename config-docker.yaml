@@ -30,6 +30,6 @@ webdav:                   # webdav server configuration
   debug: false            # enable / disable debug log
 
 strm:                     # strm generation configuration
-  folder: /path/to/folder # destination folder
+  folder: /strm # destination folder
   clear_folder: true      # empties the destination folder before re-creating entire folders tree
   url: http://127.0.0.1:3000/files/{fileid}       # http URL for downloader server (NOTE: {fileid} is required as placeholder)

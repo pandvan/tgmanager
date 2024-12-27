@@ -7,18 +7,19 @@ services:
     container_name: tgmanager
     restart: unless-stopped
     ports:
-      - 3000:3000
-      - 1900:1900
+      - 3000:3000  # web ui
+      - 1900:1900  # webdav
     volumes:
       - ./config-docker.yaml:/app/config.yaml:ro
-      # - ./strm:/
+      - ./volumes/strm:/str
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
 
   mongo:
     image: mongo:7.0.16-jammy
     container_name: mongo
-    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    command: --replSet rs0 --bind_ip_all --port 27017 --quiet --logpath /dev/null
     ports:
       - 27017:27017
     extra_hosts:
