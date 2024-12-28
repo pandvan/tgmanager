@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: tgmanager
     restart: unless-stopped
+    command: python ./telegram-manager.py --http
     ports:
       - 3000:3000  # web ui
       - 1900:1900  # webdav
@@ -19,11 +20,9 @@ services:
   mongo:
     image: mongo:7.0.16-jammy
     container_name: mongo
+    restart: unless-stopped
     command: --replSet rs0 --bind_ip_all --port 27017 --quiet --logpath /dev/null
-    ports:
-      - 27017:27017
-    extra_hosts:
-      - host.docker.internal:host-gateway
+
     healthcheck:
       test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'host.docker.internal:27017'}]}) }" | mongosh --port 27017 --quiet
       interval: 1m
@@ -31,6 +30,10 @@ services:
       start_period: 0s
       start_interval: 1s
       retries: 30
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 27017:27017
     volumes:
       - "./volumes/mongo/data:/data/db"
       - "./volumes/mongo/config:/data/configdb"

@@ -12,7 +12,7 @@ telegram:
 
 data: ./data              # default data folder
 
-db: mongo        # database file name
+db: mongodb://mongo:27017/tgmanager?replicaSet=rs0        # database file name
 
 logger: debug  # set log level
 
