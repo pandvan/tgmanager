@@ -20,9 +20,10 @@ COPY --from=webui /app/python/public app/public
 
 WORKDIR app
 
-RUN apk add libressl-dev libgcc \
+RUN apk add openssl-dev libgcc \
     && pip install wheel \
     && pip install https://github.com/alpine-wheels/cryptg/releases/download/0.5.0.post0/cryptg-0.5.0.post0-cp310-cp310-linux_x86_64.whl \
-    && pip install -r requirements.txt
+    && pip install -r requirements.txt \
+    && sed -i -e "s/ctypes\.util\.find_library('ssl')/'libssl.so'/g" $VIRTUAL_ENV/lib/python$(echo $PYTHON_VERSION | cut -d'.' -f1,2)/site-packages/telethon/crypto/libssl.py
 
 CMD ["python", "./telegram-manager.py"]
